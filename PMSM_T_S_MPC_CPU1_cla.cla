@@ -1,0 +1,369 @@
+    //====================================================================================\\
+   //                                                                                      \\
+  //              <<<    PMSM EULER & TUSTIN SYNCHRONIZED TWO-LEVEL MPC   >>>               \\
+ //                                     CLA_1                                                \\
+//============================================================================================\\
+
+
+
+  //
+ // Included Files
+//
+#include <PMSM_T_S_MPC_CPU1_header.h>
+#include "CLAmath.h"
+
+  //
+ // Globals
+//
+float Vre[7];
+float V_d[7];
+float Vim[7];
+float V_q[7];
+float cost_function[7];
+
+float i_d_latch;
+float i_q_latch;
+
+
+// Note that the globals defined in the .cla source are global to the cla source
+// file.  i.e. they may be shared across tasks. All of the data shared between
+// the CLA and the C28x CPU must be defined in the C (or C++) code, and not the
+// CLA code.
+//
+
+
+// ADC signal processing and delay compensation (TUSTIN)
+__interrupt void Cla1Task1 ( void )
+{
+    /*
+    CPU_2_CLA[0] = i_2d;
+    CPU_2_CLA[1] = i_2q;
+    CPU_2_CLA[2] = U_2d;
+    CPU_2_CLA[3] = U_2q;
+
+    CPU_2_CLA[4] = M2_Rs;
+    CPU_2_CLA[5] = M2_Ld;
+    CPU_2_CLA[6] = M2_Lq;
+    CPU_2_CLA[7] = M2_Ps;
+
+    CPU_2_CLA[8] = alpha1
+    CPU_2_CLA[9] = w_1;
+    CPU_2_CLA[10]= Ts;
+
+    CPU_2_CLA[11]= id_ref;
+    CPU_2_CLA[12]= iq_ref;
+    */
+
+    float  I_filter = CPU_2_CLA[13];
+    float iI_filter = 1.0 - I_filter;
+
+    float i_d =  I_filter*i_d_latch + iI_filter*CPU_2_CLA[0];
+    float i_q =  I_filter*i_q_latch + iI_filter*CPU_2_CLA[1];
+
+    float v_d =   CPU_2_CLA[2];
+    v_d *= 24.0;
+    //v_d *= CPU_2_CLA[14];
+    float v_q =   CPU_2_CLA[3];
+    v_q *= 24.0;
+    //v_q *= CPU_2_CLA[14];
+    float R   =   CPU_2_CLA[4];
+    float L_d =   CPU_2_CLA[5];
+    float L_q =   CPU_2_CLA[6];
+    float Psi =   CPU_2_CLA[7];
+    float alpha = CPU_2_CLA[8];
+    float w     = CPU_2_CLA[9]; // Electrical Speed
+    float T     = CPU_2_CLA[10];
+
+    float i_d_ref = CPU_2_CLA[11];
+    float i_q_ref = CPU_2_CLA[12];
+
+
+    float iL_d = CLAdiv(1.0,L_d);
+    float iL_q = CLAdiv(1.0,L_q);
+
+
+    float a11 = 1.0 - R*iL_d*T;
+    float a12 =   w*L_q*iL_d*T;
+    float a21 = - w*L_d*iL_q*T;
+    float a22 = 1.0 - R*iL_q*T;
+
+    float b11 = iL_d*T;
+    float b22 = iL_q*T;
+    float b23 = - w*Psi*iL_q*T;
+
+    //Delay Compensation
+    float i_d_delay = a11*i_d + a12*i_q + b11*v_d;
+    float i_q_delay = a21*i_d + a22*i_q + b22*v_q + b23;
+    CLA_2_CPU[0] = i_d_delay;
+    CLA_2_CPU[1] = i_q_delay;
+
+    CLA_2_CPU[4] = a11;
+    CLA_2_CPU[5] = a12;
+    CLA_2_CPU[6] = a21;
+    CLA_2_CPU[7] = a22;
+    CLA_2_CPU[8] = b11;
+    CLA_2_CPU[9] = b22;
+    CLA_2_CPU[10] = b23;
+    CLA_2_CPU[11] = i_d;
+    CLA_2_CPU[12] = i_q;
+    CLA_2_CPU[13] = v_d;
+    CLA_2_CPU[14] = v_q;
+
+
+
+    i_d_latch = i_d_delay;
+    i_q_latch = i_q_delay;
+
+    //Rotate Inputs
+    float sin, cos;
+    CLAsincos(alpha, &sin, &cos);
+    unsigned int i;
+    for (i=7;i--;)
+    {
+        V_d[i] = cos*Vre[i] + sin*Vim[i];
+        V_q[i] = cos*Vim[i] - sin*Vre[i];
+    }
+
+    //Predictions
+    float i_d_pred;
+    float i_q_pred;
+    float cost;
+    for(i=7;i--;)
+    {
+        i_d_pred = a11*i_d_delay + a12*i_q_delay + b11*V_d[i];
+        i_q_pred = a21*i_d_delay + a22*i_q_delay + b22*V_q[i] + b23;
+
+        cost = i_d_ref - i_d_pred;
+        cost*= cost;
+        cost_function[i]  = cost;
+        cost = i_q_ref - i_q_pred;
+        cost*= cost;
+        cost_function[i] += cost;
+    }
+
+    // QRM Circle Optimizer
+
+      //
+     // Regression Model Fitting
+    //
+
+    // Vandermonde Coefficient Matrix
+    // [ 1/2,         0,          0,  1/2,          0,          0, -1 ]
+    // [ 1/3,       1/6,       -1/6, -1/3,       -1/6,        1/6,  0 ]
+    // [-1/6,       1/3,        1/3, -1/6,        1/3,        1/3, -1 ]
+    // [   0, 3^(1/2)/6,  3^(1/2)/6,    0, -3^(1/2)/6, -3^(1/2)/6,  0 ]
+    // [   0, 3^(1/2)/3, -3^(1/2)/3,    0,  3^(1/2)/3, -3^(1/2)/3,  0 ]
+    // [   0,         0,          0,    0,          0,          0,  1 ]
+
+    float a;
+    float b;
+    float c;
+    float d;
+    float e;
+    //float f;
+
+    a = cost_function[0];
+    a+= cost_function[3];
+    a*= 0.5;
+    a-= cost_function[6];
+
+    b = cost_function[1];
+    b-= cost_function[2];
+    b-= cost_function[4];
+    b+= cost_function[5];
+    b*= 0.5;
+    b+= cost_function[0];
+    b-= cost_function[3];
+    float c1per3 = 0.33333333333333;
+    b*= c1per3;
+
+    c = -cost_function[0];
+    c-= cost_function[3];
+    c*= 0.5;
+    c+= cost_function[1];
+    c+= cost_function[2];
+    c+= cost_function[4];
+    c+= cost_function[5];
+    c*= c1per3;
+    c-= cost_function[6];
+
+    d = cost_function[1];
+    d+= cost_function[2];
+    d-= cost_function[4];
+    d-= cost_function[5];
+    d*= 0.5*c1per3*Sqrt3;
+
+    e = cost_function[1];
+    e-= cost_function[2];
+    e+= cost_function[4];
+    e-= cost_function[5];
+    e*= c1per3*Sqrt3;
+
+    //f = cost_function[6];
+
+    float x_min;
+    float y_min;
+
+    //Inside minimum
+     unsigned int inside_point = 0;
+
+     float M2;
+     M2 = 4.0*a*c - e*e;
+
+    if((a>0.0)&&(M2>0.0))
+    {
+       M2 = CLAdiv(1.0,M2);
+
+       x_min = (d*e - 2.0*b*c)*M2;
+       y_min = (b*e - 2.0*a*d)*M2;
+
+       float x2 = x_min*x_min;
+       float y2 = y_min*y_min;
+
+       //inside_point = ((x2+y2)<0.91); // over modulation limit     9/(pi^2) here be dragons
+       inside_point = ((x2+y2)<0.75); // linear modulation limit   9/12
+       //inside_point = ((x2+y2)<0.5625); // sine modulation limit   9/16
+    }
+
+    if(!inside_point)
+    {
+      float w = CLAsqrt((a-c)*(a-c)+e*e);
+      float delta = 0.5*(a+c-w);
+      float q1 = CLAdiv(a-c-w,e);
+
+      float norm = CLAsqrt(1.0+q1*q1);
+      float q2 = CLAdiv(1.0,norm);
+      q1 = q1*q2;
+
+      if(e*e<0.0001)
+      {
+          if(b>d)
+          {
+              q1=0.0;
+              q2=1.0;
+          }
+          else
+          {
+              q1=1.0;
+              q2=0.0;
+          }
+      }
+
+      float D = (-q1*b-q2*d)*0.5;
+      D = (D>0.0)*D - (D<0.0)*D;
+      D = D*1.1547;
+
+      float lambda = delta - D;
+      int i;
+      for(i=12;--i;)
+      {
+          register float v1;
+          register float v2;
+          register float w1;
+          register float w2;
+          register float idet = (a-lambda)*(c-lambda)-0.25*e*e;
+          idet = CLAdiv(0.5,idet);
+
+          v1 = idet*(0.5*e*d - (c-lambda)*b);
+          v2 = idet*(0.5*e*b - (a-lambda)*d);
+
+          x_min = v1;
+          y_min = v2;
+
+          //del_params[i] = x_min;
+          //del_params[i+8] = y_min;
+
+          //if(!i) {break;}
+          register float h = v1*v1 + v2*v2;
+
+          w1 = idet*(2.0*(c-lambda)*v1 - e*v2);
+          w2 = idet*(2.0*(a-lambda)*v2 - e*v1);
+
+          register float g = v1*w1 + v2*w2;
+          g = CLAdiv(h,g);
+          h = CLAsqrt(h);
+
+          float dlambda = g*(h*1.1547-1.0);
+          //float absdlambda = dlambda;
+          //absdlambda = ((absdlambda>0) - (absdlambda<0))*absdlambda;
+          //if(absdlambda<0.0001)
+          //{
+       //     break;
+         // }
+          //
+          lambda = lambda - dlambda;
+          //__mdebugstop();
+
+      }
+    }
+
+    CLA_2_CPU[2] = x_min*0.666666666666666;
+    CLA_2_CPU[3] = y_min*0.666666666666666;
+
+
+
+
+}
+
+// Predictions
+__interrupt void Cla1Task2 ( void )
+{
+
+}
+
+//PI Controller
+__interrupt void Cla1Task3 ( void )
+{
+
+}
+
+// ADC signal processing and delay compensation (EULER)
+__interrupt void Cla1Task4 ( void )
+{
+
+}
+
+__interrupt void Cla1Task5 ( void )
+{
+
+}
+
+__interrupt void Cla1Task6 ( void )
+{
+
+}
+
+__interrupt void Cla1Task7 ( void )
+{
+
+}
+
+// Initial Values for Task1
+__interrupt void Cla1Task8 ( void )
+{
+    unsigned int i;
+
+    float reV[7]={ 2.0, 1.0,-1.0,-2.0,-1.0, 1.0, 0.0 };
+    float imV[7]={ 0.0, 1.0, 1.0, 0.0,-1.0,-1.0, 0.0 };
+
+    float V_bus = 24.0;
+
+    float reV_base = V_bus/3.0;
+    float imV_base = V_bus*OneOverSqrt3;
+    for(i=7;i--;)
+    {
+        Vre[i] = reV[i] * reV_base;
+        V_d[i] = Vre[i];
+        Vim[i] = imV[i] * imV_base;
+        V_q[i] = Vim[i];
+
+    }
+    i_d_latch = 0.0;
+    i_q_latch = 0.0;
+    //float x_mins_prot[6] = { -0.5, -1.0, -1.0, -0.5, 0.5, 0.5 };
+    //float x_maxs_prot[6] = {  0.5, -0.5, -0.5,  0.5, 1.0, 1.0 };
+}
+
+//
+// End of file
+//
