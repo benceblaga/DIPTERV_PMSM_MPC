@@ -7,9 +7,9 @@
  *
  * Code generated for Simulink model 'MPC'.
  *
- * Model version                  : 1.134
+ * Model version                  : 1.138
  * Simulink Coder version         : 9.9 (R2023a) 19-Nov-2022
- * C/C++ source code generated on : Sat Apr 18 05:01:08 2026
+ * C/C++ source code generated on : Mon Apr 27 04:45:47 2026
  *
  * Target selection: ert.tlc
  * Embedded hardware selection: Texas Instruments->C2000
@@ -29,15 +29,6 @@
 #include "rt_nonfinite.h"
 #include "rtGetNaN.h"
 #include <string.h>
-
-/* Macros for accessing real-time model data structure */
-#ifndef rtmGetErrorStatus
-#define rtmGetErrorStatus(rtm)         ((rtm)->errorStatus)
-#endif
-
-#ifndef rtmSetErrorStatus
-#define rtmSetErrorStatus(rtm, val)    ((rtm)->errorStatus = (val))
-#endif
 
 /* Block signals (default storage) */
 typedef struct {
@@ -83,16 +74,16 @@ typedef struct {
 
 /* Parameters (default storage) */
 struct P_MPC_T_ {
+  real_T J;                            /* Variable: J
+                                        * Referenced by: '<S4>/MATLAB Function'
+                                        */
   real32_T B;                          /* Variable: B
                                         * Referenced by: '<S4>/MATLAB Function'
                                         */
-  real32_T J;                          /* Variable: J
-                                        * Referenced by: '<S4>/MATLAB Function'
-                                        */
-  real32_T LUT_Id[420];                /* Variable: LUT_Id
+  real32_T LUT_Id[240];                /* Variable: LUT_Id
                                         * Referenced by: '<S3>/Interpolation Using Prelookup'
                                         */
-  real32_T LUT_Iq[420];                /* Variable: LUT_Iq
+  real32_T LUT_Iq[240];                /* Variable: LUT_Iq
                                         * Referenced by: '<S3>/Interpolation Using Prelookup1'
                                         */
   real32_T Ld;                         /* Variable: Ld
@@ -120,7 +111,7 @@ struct P_MPC_T_ {
                                /* Computed Parameter: UnitDelay_InitialCondition
                                 * Referenced by: '<S2>/Unit Delay'
                                 */
-  real32_T PrelookupTe_BreakpointsData[21];/* Expression: torque_vec'
+  real32_T PrelookupTe_BreakpointsData[12];/* Expression: torque_vec'
                                             * Referenced by: '<S3>/Prelookup Te'
                                             */
   real32_T Saturation_UpperSat;       /* Computed Parameter: Saturation_UpperSat
@@ -145,11 +136,6 @@ struct P_MPC_T_ {
                                         */
 };
 
-/* Real-time Model Data Structure */
-struct tag_RTM_MPC_T {
-  const char_T * volatile errorStatus;
-};
-
 /* Block parameters (default storage) */
 extern P_MPC_T MPC_P;
 
@@ -169,9 +155,6 @@ extern ExtY_MPC_T MPC_Y;
 extern void MPC_initialize(void);
 extern void MPC_step(void);
 extern void MPC_terminate(void);
-
-/* Real-time Model object */
-extern RT_MODEL_MPC_T *const MPC_M;
 extern volatile boolean_T stopRequested;
 extern volatile boolean_T runModel;
 

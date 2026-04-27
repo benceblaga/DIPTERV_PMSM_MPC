@@ -7,9 +7,9 @@
  *
  * Code generated for Simulink model 'MPC'.
  *
- * Model version                  : 1.134
+ * Model version                  : 1.138
  * Simulink Coder version         : 9.9 (R2023a) 19-Nov-2022
- * C/C++ source code generated on : Sat Apr 18 05:01:08 2026
+ * C/C++ source code generated on : Mon Apr 27 04:45:47 2026
  *
  * Target selection: ert.tlc
  * Embedded hardware selection: Texas Instruments->C2000
@@ -36,10 +36,6 @@ ExtU_MPC_T MPC_U;
 
 /* External outputs (root outports fed by signals with default storage) */
 ExtY_MPC_T MPC_Y;
-
-/* Real-time model */
-static RT_MODEL_MPC_T MPC_M_;
-RT_MODEL_MPC_T *const MPC_M = &MPC_M_;
 
 /* Forward declaration for local functions */
 static void MPC_trisolve(const real32_T A[144], real32_T B[144]);
@@ -795,7 +791,7 @@ static void MPC_qpkwik(const real32_T Linv[144], const real32_T Hinv[144], const
               b_i = kDrop + 12L;
             }
 
-            Rhs[(int16_T)b_i - 1] = -150.0F;
+            Rhs[(int16_T)b_i - 1] = -24.0F;
             for (b_i = kDrop; b_i <= nA; b_i++) {
               i = (((int16_T)kDrop - 1) * 12 + (int16_T)b_i) - 1;
               MPC_B.U[i] = 0.0F;
@@ -969,7 +965,7 @@ static void MPC_qpkwik(const real32_T Linv[144], const real32_T Hinv[144], const
             cVal += Ac[24 * i + f_i] * x[i];
           }
 
-          cVal = (cVal - -150.0F) / MPC_B.cTol[f_i];
+          cVal = (cVal - -24.0F) / MPC_B.cTol[f_i];
           if (cVal < cMin) {
             cMin = cVal;
             tmp = f_i;
@@ -1084,7 +1080,7 @@ static void MPC_qpkwik(const real32_T Linv[144], const real32_T Hinv[144], const
                   cVal += Ac[24 * i + tmp] * x[i];
                 }
 
-                cVal = (-150.0F - cVal) / zTa;
+                cVal = (-24.0F - cVal) / zTa;
                 ColdReset = false;
               }
 
@@ -1158,7 +1154,7 @@ static void MPC_qpkwik(const real32_T Linv[144], const real32_T Hinv[144], const
             if (fabsf(cMin - Xnorm0) > 0.001F) {
               Xnorm0 = cMin;
               for (i = 0; i < 24; i++) {
-                MPC_B.cTol[i] = 150.0F;
+                MPC_B.cTol[i] = 24.0F;
               }
 
               cTolComputed = false;
@@ -1329,9 +1325,9 @@ void MPC_step(void)
   rtb_Gain_idx_0_tmp = MPC_DW.DiscreteTimeIntegrator_DSTATE[1];
   MPC_DW.DiscreteTimeIntegrator_DSTATE[0] = ((((-0.00135187327F * MPC_U.Id_meas
     + 1.0F) * (0.194175F * MPC_U.Iq_meas) - rtb_PrelookupRPM_o2) - MPC_P.B *
-    tmp_0) * (1.0F / MPC_P.J) + (2000.0F - MPC_P.B / MPC_P.J) * e_wm) *
-    MPC_P.DiscreteTimeIntegrator_gainval + rtb_PrelookupTe_o2;
-  MPC_DW.DiscreteTimeIntegrator_DSTATE[1] = -MPC_P.J * 1.0E+6F * e_wm *
+    tmp_0) * (real32_T)(1.0 / MPC_P.J) + (2000.0F - MPC_P.B / (real32_T)MPC_P.J)
+    * e_wm) * MPC_P.DiscreteTimeIntegrator_gainval + rtb_PrelookupTe_o2;
+  MPC_DW.DiscreteTimeIntegrator_DSTATE[1] = (real32_T)-MPC_P.J * 1.0E+6F * e_wm *
     MPC_P.DiscreteTimeIntegrator_gainval + rtb_Gain_idx_0_tmp;
 
   /* End of Outputs for SubSystem: '<S1>/Subsystem' */
@@ -1347,7 +1343,7 @@ void MPC_step(void)
 
   /* PreLookup: '<S3>/Prelookup Te' */
   rtb_PrelookupTe_o1 = plook_u32ff_binx(rtb_PrelookupTe_o2,
-    MPC_P.PrelookupTe_BreakpointsData, 20UL, &rtb_PrelookupTe_o2);
+    MPC_P.PrelookupTe_BreakpointsData, 11UL, &rtb_PrelookupTe_o2);
 
   /* Abs: '<S3>/Abs1' incorporates:
    *  Gain: '<S1>/Gain1'
@@ -1373,7 +1369,7 @@ void MPC_step(void)
   frac[1L] = rtb_PrelookupRPM_o2;
   bpIndex[0L] = rtb_PrelookupTe_o1;
   bpIndex[1L] = rtb_PrelookupRPM_o1;
-  e_wm = intrp2d_fu32fl_pw(bpIndex, frac, MPC_P.LUT_Id, 21UL);
+  e_wm = intrp2d_fu32fl_pw(bpIndex, frac, MPC_P.LUT_Id, 12UL);
 
   /* Interpolation_n-D: '<S3>/Interpolation Using Prelookup1' */
   frac_0[0L] = rtb_PrelookupTe_o2;
@@ -1396,10 +1392,10 @@ void MPC_step(void)
    *  UnaryMinus: '<S3>/Unary Minus'
    */
   if (rtb_PrelookupTe_o2 >= MPC_P.Switch_Threshold) {
-    rtb_PrelookupTe_o2 = intrp2d_fu32fl_pw(bpIndex_0, frac_0, MPC_P.LUT_Iq, 21UL);
+    rtb_PrelookupTe_o2 = intrp2d_fu32fl_pw(bpIndex_0, frac_0, MPC_P.LUT_Iq, 12UL);
   } else {
     rtb_PrelookupTe_o2 = -intrp2d_fu32fl_pw(bpIndex_0, frac_0, MPC_P.LUT_Iq,
-      21UL);
+      12UL);
   }
 
   /* End of Switch: '<S3>/Switch' */
@@ -2013,9 +2009,6 @@ void MPC_initialize(void)
 
   /* initialize non-finites */
   rt_InitInfAndNaN(sizeof(real_T));
-
-  /* initialize error status */
-  rtmSetErrorStatus(MPC_M, (NULL));
 
   /* states (dwork) */
   (void) memset((void *)&MPC_DW, 0,

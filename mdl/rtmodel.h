@@ -7,9 +7,9 @@
  *
  * Code generated for Simulink model 'MPC'.
  *
- * Model version                  : 1.134
+ * Model version                  : 1.138
  * Simulink Coder version         : 9.9 (R2023a) 19-Nov-2022
- * C/C++ source code generated on : Sat Apr 18 05:01:08 2026
+ * C/C++ source code generated on : Mon Apr 27 04:45:47 2026
  *
  * Target selection: ert.tlc
  * Embedded hardware selection: Texas Instruments->C2000
@@ -22,6 +22,14 @@
 #include "MPC.h"
 
 /* Macros generated for backwards compatibility  */
+#ifndef rtmGetErrorStatus
+#define rtmGetErrorStatus(rtm)         ((void*) 0)
+#endif
+
+#ifndef rtmSetErrorStatus
+#define rtmSetErrorStatus(rtm, val)    ((void) 0)
+#endif
+
 #ifndef rtmGetStopRequested
 #define rtmGetStopRequested(rtm)       ((void*) 0)
 #endif
