@@ -7,9 +7,9 @@
  *
  * Code generated for Simulink model 'MPC'.
  *
- * Model version                  : 1.138
+ * Model version                  : 1.139
  * Simulink Coder version         : 9.9 (R2023a) 19-Nov-2022
- * C/C++ source code generated on : Mon Apr 27 04:45:47 2026
+ * C/C++ source code generated on : Mon Apr 27 05:07:49 2026
  *
  * Target selection: ert.tlc
  * Embedded hardware selection: Texas Instruments->C2000
@@ -157,6 +157,11 @@ P_MPC_T MPC_P = {
    */
   0.016F,
 
+  /* Variable: rpm_max
+   * Referenced by: '<S3>/Saturation'
+   */
+  2674.0F,
+
   /* Variable: speed_rpm_vec
    * Referenced by: '<S3>/Prelookup RPM'
    */
@@ -174,11 +179,6 @@ P_MPC_T MPC_P = {
    * Referenced by: '<S3>/Prelookup Te'
    */
   { 0.1F, 0.2F, 0.3F, 0.4F, 0.5F, 0.6F, 0.7F, 0.8F, 0.9F, 1.0F, 1.1F, 1.2F },
-
-  /* Computed Parameter: Saturation_UpperSat
-   * Referenced by: '<S3>/Saturation'
-   */
-  21000.0F,
 
   /* Computed Parameter: Saturation_LowerSat
    * Referenced by: '<S3>/Saturation'

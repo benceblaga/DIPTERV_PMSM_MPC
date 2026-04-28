@@ -7,9 +7,9 @@
  *
  * Code generated for Simulink model 'MPC'.
  *
- * Model version                  : 1.138
+ * Model version                  : 1.139
  * Simulink Coder version         : 9.9 (R2023a) 19-Nov-2022
- * C/C++ source code generated on : Mon Apr 27 04:45:47 2026
+ * C/C++ source code generated on : Mon Apr 27 05:07:49 2026
  *
  * Target selection: ert.tlc
  * Embedded hardware selection: Texas Instruments->C2000
@@ -1352,8 +1352,8 @@ void MPC_step(void)
   rtb_PrelookupRPM_o2 = fabsf(MPC_P.Gain1_Gain * MPC_U.wm);
 
   /* Saturate: '<S3>/Saturation' */
-  if (rtb_PrelookupRPM_o2 > MPC_P.Saturation_UpperSat) {
-    rtb_PrelookupRPM_o2 = MPC_P.Saturation_UpperSat;
+  if (rtb_PrelookupRPM_o2 > MPC_P.rpm_max) {
+    rtb_PrelookupRPM_o2 = MPC_P.rpm_max;
   } else if (rtb_PrelookupRPM_o2 < MPC_P.Saturation_LowerSat) {
     rtb_PrelookupRPM_o2 = MPC_P.Saturation_LowerSat;
   }

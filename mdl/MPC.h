@@ -7,9 +7,9 @@
  *
  * Code generated for Simulink model 'MPC'.
  *
- * Model version                  : 1.138
+ * Model version                  : 1.139
  * Simulink Coder version         : 9.9 (R2023a) 19-Nov-2022
- * C/C++ source code generated on : Mon Apr 27 04:45:47 2026
+ * C/C++ source code generated on : Mon Apr 27 05:07:49 2026
  *
  * Target selection: ert.tlc
  * Embedded hardware selection: Texas Instruments->C2000
@@ -104,6 +104,9 @@ struct P_MPC_T_ {
   real32_T psi_m;                      /* Variable: psi_m
                                         * Referenced by: '<S2>/MPC'
                                         */
+  real32_T rpm_max;                    /* Variable: rpm_max
+                                        * Referenced by: '<S3>/Saturation'
+                                        */
   real32_T speed_rpm_vec[20];          /* Variable: speed_rpm_vec
                                         * Referenced by: '<S3>/Prelookup RPM'
                                         */
@@ -114,9 +117,6 @@ struct P_MPC_T_ {
   real32_T PrelookupTe_BreakpointsData[12];/* Expression: torque_vec'
                                             * Referenced by: '<S3>/Prelookup Te'
                                             */
-  real32_T Saturation_UpperSat;       /* Computed Parameter: Saturation_UpperSat
-                                       * Referenced by: '<S3>/Saturation'
-                                       */
   real32_T Saturation_LowerSat;       /* Computed Parameter: Saturation_LowerSat
                                        * Referenced by: '<S3>/Saturation'
                                        */
