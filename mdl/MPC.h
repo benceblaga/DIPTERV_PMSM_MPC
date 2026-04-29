@@ -7,9 +7,9 @@
  *
  * Code generated for Simulink model 'MPC'.
  *
- * Model version                  : 1.139
+ * Model version                  : 1.150
  * Simulink Coder version         : 9.9 (R2023a) 19-Nov-2022
- * C/C++ source code generated on : Mon Apr 27 05:07:49 2026
+ * C/C++ source code generated on : Wed Apr 29 03:55:08 2026
  *
  * Target selection: ert.tlc
  * Embedded hardware selection: Texas Instruments->C2000
@@ -30,32 +30,13 @@
 #include "rtGetNaN.h"
 #include <string.h>
 
-/* Block signals (default storage) */
-typedef struct {
-  real32_T Su[144];
-  real32_T H_qp[144];
-  real32_T H_qp_tmp[144];
-  real32_T Su_m[144];
-  real32_T Su_c[144];
-  real32_T RLinv[144];
-  real32_T D[144];
-  real32_T H[144];
-  real32_T U[144];
-  real32_T TL[144];
-  real32_T Q[144];
-  real32_T R[144];
-  int16_T T[144];
-  int32_T iC[24];
-  real32_T a[24];
-  real32_T cTol[24];
-  real32_T Opt[24];
-} B_MPC_T;
-
 /* Block states (default storage) for system '<Root>' */
 typedef struct {
   real32_T DiscreteTimeIntegrator_DSTATE[2];/* '<S4>/Discrete-Time Integrator' */
   real32_T UnitDelay_DSTATE[2];        /* '<S2>/Unit Delay' */
-  boolean_T iA_prev[24];               /* '<S2>/MPC' */
+  uint32_T PrelookupTe_DWORK1;         /* '<S3>/Prelookup Te' */
+  uint32_T PrelookupRPM_DWORK1;        /* '<S3>/Prelookup RPM' */
+  boolean_T iA_prev[4];                /* '<S2>/MPC' */
 } DW_MPC_T;
 
 /* External inputs (root inport signals with default storage) */
@@ -70,20 +51,24 @@ typedef struct {
 typedef struct {
   real32_T Ud_out;                     /* '<Root>/Ud_out' */
   real32_T Uq_out;                     /* '<Root>/Uq_out' */
+  real32_T Te_meas_out;                /* '<Root>/Te_meas_out' */
+  real32_T id_ref_cal_out;             /* '<Root>/id_ref_cal_out' */
+  real32_T iq_ref_cal_out;             /* '<Root>/iq_ref_cal_out' */
+  real32_T Tl_est_out;                 /* '<Root>/Tl_est_out' */
 } ExtY_MPC_T;
 
 /* Parameters (default storage) */
 struct P_MPC_T_ {
-  real_T J;                            /* Variable: J
-                                        * Referenced by: '<S4>/MATLAB Function'
-                                        */
   real32_T B;                          /* Variable: B
                                         * Referenced by: '<S4>/MATLAB Function'
                                         */
-  real32_T LUT_Id[240];                /* Variable: LUT_Id
+  real32_T J;                          /* Variable: J
+                                        * Referenced by: '<S4>/MATLAB Function'
+                                        */
+  real32_T LUT_Id[273];                /* Variable: LUT_Id
                                         * Referenced by: '<S3>/Interpolation Using Prelookup'
                                         */
-  real32_T LUT_Iq[240];                /* Variable: LUT_Iq
+  real32_T LUT_Iq[273];                /* Variable: LUT_Iq
                                         * Referenced by: '<S3>/Interpolation Using Prelookup1'
                                         */
   real32_T Ld;                         /* Variable: Ld
@@ -94,6 +79,12 @@ struct P_MPC_T_ {
                                         */
   real32_T Rs;                         /* Variable: Rs
                                         * Referenced by: '<S2>/MPC'
+                                        */
+  real32_T Te_max;                     /* Variable: Te_max
+                                        * Referenced by: '<S3>/Saturation1'
+                                        */
+  real32_T Te_min;                     /* Variable: Te_min
+                                        * Referenced by: '<S3>/Saturation1'
                                         */
   real32_T Tsw;                        /* Variable: Tsw
                                         * Referenced by: '<S2>/MPC'
@@ -107,14 +98,14 @@ struct P_MPC_T_ {
   real32_T rpm_max;                    /* Variable: rpm_max
                                         * Referenced by: '<S3>/Saturation'
                                         */
-  real32_T speed_rpm_vec[20];          /* Variable: speed_rpm_vec
+  real32_T speed_rpm_vec[21];          /* Variable: speed_rpm_vec
                                         * Referenced by: '<S3>/Prelookup RPM'
                                         */
   real32_T UnitDelay_InitialCondition;
                                /* Computed Parameter: UnitDelay_InitialCondition
                                 * Referenced by: '<S2>/Unit Delay'
                                 */
-  real32_T PrelookupTe_BreakpointsData[12];/* Expression: torque_vec'
+  real32_T PrelookupTe_BreakpointsData[13];/* Expression: torque_vec'
                                             * Referenced by: '<S3>/Prelookup Te'
                                             */
   real32_T Saturation_LowerSat;       /* Computed Parameter: Saturation_LowerSat
@@ -134,13 +125,18 @@ struct P_MPC_T_ {
   real32_T Gain1_Gain;                 /* Computed Parameter: Gain1_Gain
                                         * Referenced by: '<S1>/Gain1'
                                         */
+  uint32_T InterpolationUsingPrelookup1_di[2];
+                          /* Computed Parameter: InterpolationUsingPrelookup1_di
+                           * Referenced by: '<S3>/Interpolation Using Prelookup1'
+                           */
+  uint32_T InterpolationUsingPrelookup_dim[2];
+                          /* Computed Parameter: InterpolationUsingPrelookup_dim
+                           * Referenced by: '<S3>/Interpolation Using Prelookup'
+                           */
 };
 
 /* Block parameters (default storage) */
 extern P_MPC_T MPC_P;
-
-/* Block signals (default storage) */
-extern B_MPC_T MPC_B;
 
 /* Block states (default storage) */
 extern DW_MPC_T MPC_DW;

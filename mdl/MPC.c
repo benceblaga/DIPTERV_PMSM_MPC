@@ -7,9 +7,9 @@
  *
  * Code generated for Simulink model 'MPC'.
  *
- * Model version                  : 1.139
+ * Model version                  : 1.150
  * Simulink Coder version         : 9.9 (R2023a) 19-Nov-2022
- * C/C++ source code generated on : Mon Apr 27 05:07:49 2026
+ * C/C++ source code generated on : Wed Apr 29 03:55:08 2026
  *
  * Target selection: ert.tlc
  * Embedded hardware selection: Texas Instruments->C2000
@@ -19,14 +19,11 @@
 
 #include "MPC.h"
 #include "rtwtypes.h"
-#include <math.h>
 #include "rt_nonfinite.h"
+#include <math.h>
 #include <string.h>
-#include "MPC_private.h"
 #include "mw_C28x_addsub_s32.h"
-
-/* Block signals (default storage) */
-B_MPC_T MPC_B;
+#include "MPC_private.h"
 
 /* Block states (default storage) */
 DW_MPC_T MPC_DW;
@@ -38,34 +35,36 @@ ExtU_MPC_T MPC_U;
 ExtY_MPC_T MPC_Y;
 
 /* Forward declaration for local functions */
-static void MPC_trisolve(const real32_T A[144], real32_T B[144]);
-static void MPC_Unconstrained(const real32_T Hinv[144], const real32_T f[12],
-  real32_T x[12]);
-static real32_T MPC_norm(const real32_T x[12]);
-static real32_T MPC_maximum(const real32_T x[12]);
-static real32_T MPC_xnrm2(int16_T n, const real32_T x[144], int16_T ix0);
-static void MPC_xgemv(int16_T m, int16_T n, const real32_T A[144], int16_T ia0,
-                      const real32_T x[144], int16_T ix0, real32_T y[12]);
+static void MPC_trisolve(const real32_T A[4], real32_T B[4]);
+static void MPC_Unconstrained(const real32_T Hinv[4], const real32_T f[2],
+  real32_T x[2]);
+static real32_T MPC_norm(const real32_T x[2]);
+static void MPC_abs(const real32_T x[2], real32_T y[2]);
+static real32_T MPC_maximum(const real32_T x[2]);
+static void MPC_abs_i(real32_T y[4]);
+static void MPC_maximum2(const real32_T x[4], real32_T ex[4]);
+static void MPC_xgemv(int16_T m, int16_T n, const real32_T A[4], int16_T ia0,
+                      const real32_T x[4], int16_T ix0, real32_T y[2]);
 static void MPC_xgerc(int16_T m, int16_T n, real32_T alpha1, int16_T ix0, const
-                      real32_T y[12], real32_T A[144], int16_T ia0);
-static real32_T MPC_KWIKfactor(const real32_T Ac[288], const int32_T iC[24],
-  int32_T nA, const real32_T Linv[144], real32_T RLinv[144], real32_T D[144],
-  real32_T H[144]);
-static real32_T MPC_mtimes(const real32_T A[12], const real32_T B[12]);
-static void MPC_DropConstraint(int32_T kDrop, boolean_T iA[24], int32_T *nA,
-  int32_T iC[24]);
-static void MPC_qpkwik(const real32_T Linv[144], const real32_T Hinv[144], const
-  real32_T f[12], const real32_T Ac[288], boolean_T iA[24], real32_T x[12],
-  real32_T lambda[24], int32_T *status);
-uint32_T plook_u32ff_binx(real32_T u, const real32_T bp[], uint32_T maxIndex,
-  real32_T *fraction)
+                      real32_T y[2], real32_T A[4], int16_T ia0);
+static real32_T MPC_KWIKfactor(const real32_T Ac[8], const int32_T iC[4],
+  int32_T nA, const real32_T Linv[4], real32_T RLinv[4], real32_T D[4], real32_T
+  H[4]);
+static real32_T MPC_mtimes(const real32_T A[2], const real32_T B[2]);
+static void MPC_DropConstraint(int32_T kDrop, boolean_T iA[4], int32_T *nA,
+  int32_T iC[4]);
+static void MPC_qpkwik(const real32_T Linv[4], const real32_T Hinv[4], const
+  real32_T f[2], const real32_T Ac[8], boolean_T iA[4], real32_T x[2], real32_T
+  lambda[4], int32_T *status);
+uint32_T plook_u32ff_binxp(real32_T u, const real32_T bp[], uint32_T maxIndex,
+  real32_T *fraction, uint32_T *prevIndex)
 {
   uint32_T bpIndex;
 
   /* Prelookup - Index and Fraction
      Index Search method: 'binary'
      Extrapolation method: 'Linear'
-     Use previous index: 'off'
+     Use previous index: 'on'
      Use last breakpoint for index at or above upper limit: 'off'
      Remove protection against out-of-range input in generated code: 'off'
    */
@@ -73,18 +72,19 @@ uint32_T plook_u32ff_binx(real32_T u, const real32_T bp[], uint32_T maxIndex,
     bpIndex = 0UL;
     *fraction = (u - bp[0UL]) / (bp[1UL] - bp[0UL]);
   } else if (u < bp[maxIndex]) {
-    bpIndex = binsearch_u32f(u, bp, maxIndex >> 1UL, maxIndex);
+    bpIndex = binsearch_u32f_prevIdx(u, bp, *prevIndex, maxIndex);
     *fraction = (u - bp[bpIndex]) / (bp[bpIndex + 1UL] - bp[bpIndex]);
   } else {
     bpIndex = maxIndex - 1UL;
     *fraction = (u - bp[maxIndex - 1UL]) / (bp[maxIndex] - bp[maxIndex - 1UL]);
   }
 
+  *prevIndex = bpIndex;
   return bpIndex;
 }
 
-real32_T intrp2d_fu32fl_pw(const uint32_T bpIndex[], const real32_T frac[],
-  const real32_T table[], const uint32_T stride)
+real32_T intrp2d_fu32flm_pw(const uint32_T bpIndex[], const real32_T frac[],
+  const real32_T table[], const uint32_T stride[])
 {
   real32_T yL_0d0;
   real32_T yL_0d1;
@@ -95,205 +95,165 @@ real32_T intrp2d_fu32fl_pw(const uint32_T bpIndex[], const real32_T frac[],
      Use last breakpoint for index at or above upper limit: 'off'
      Overflow mode: 'portable wrapping'
    */
-  offset_1d = bpIndex[1UL] * stride + bpIndex[0UL];
+  offset_1d = bpIndex[1UL] * stride[1UL] + bpIndex[0UL] * stride[0UL];
   yL_0d0 = table[offset_1d];
-  yL_0d0 += (table[offset_1d + 1UL] - yL_0d0) * frac[0UL];
-  offset_1d += stride;
+  yL_0d0 = (table[offset_1d + stride[0UL]] - yL_0d0) * frac[0UL] + yL_0d0;
+  offset_1d = offset_1d + stride[1UL];
   yL_0d1 = table[offset_1d];
-  return (((table[offset_1d + 1UL] - yL_0d1) * frac[0UL] + yL_0d1) - yL_0d0) *
-    frac[1UL] + yL_0d0;
+  return (((table[offset_1d + stride[0UL]] - yL_0d1) * frac[0UL] + yL_0d1) -
+          yL_0d0) * frac[1UL] + yL_0d0;
 }
 
-uint32_T binsearch_u32f(real32_T u, const real32_T bp[], uint32_T startIndex,
-  uint32_T maxIndex)
+uint32_T binsearch_u32f_prevIdx(real32_T u, const real32_T bp[], uint32_T
+  startIndex, uint32_T maxIndex)
 {
-  uint32_T bpIdx;
   uint32_T bpIndex;
+  uint32_T found;
+  uint32_T iLeft;
   uint32_T iRght;
 
-  /* Binary Search */
-  bpIdx = startIndex;
-  bpIndex = 0UL;
+  /* Binary Search using Previous Index */
+  bpIndex = startIndex;
+  iLeft = 0UL;
   iRght = maxIndex;
-  while (iRght - bpIndex > 1UL) {
-    if (u < bp[bpIdx]) {
-      iRght = bpIdx;
+  found = 0UL;
+  while (found == 0UL) {
+    if (u < bp[bpIndex]) {
+      iRght = bpIndex - 1UL;
+      bpIndex = ((bpIndex + iLeft) - 1UL) >> 1UL;
+    } else if (u < bp[bpIndex + 1UL]) {
+      found = 1UL;
     } else {
-      bpIndex = bpIdx;
+      iLeft = bpIndex + 1UL;
+      bpIndex = ((bpIndex + iRght) + 1UL) >> 1UL;
     }
-
-    bpIdx = (iRght + bpIndex) >> 1UL;
   }
 
   return bpIndex;
 }
 
-int16_T div_nde_s16_floor(int16_T numerator, int16_T denominator)
-{
-  return (((numerator < 0) != (denominator < 0)) && (numerator % denominator !=
-           0) ? -1 : 0) + numerator / denominator;
-}
-
 /* Function for MATLAB Function: '<S2>/MPC' */
-static void MPC_trisolve(const real32_T A[144], real32_T B[144])
+static void MPC_trisolve(const real32_T A[4], real32_T B[4])
 {
-  real32_T B_0;
-  int16_T B_tmp;
-  int16_T b_k;
+  real32_T s;
+  int16_T colB;
   int16_T i;
   int16_T j;
-  int16_T jBcol;
-  int16_T kAcol;
-  int16_T tmp;
-  for (j = 0; j < 12; j++) {
-    jBcol = 12 * j;
-    for (b_k = 0; b_k < 12; b_k++) {
-      kAcol = 12 * b_k;
-      B_tmp = b_k + jBcol;
-      B_0 = B[B_tmp];
-      if (B_0 != 0.0F) {
-        B[B_tmp] = B_0 / A[b_k + kAcol];
-        for (i = b_k + 2; i < 13; i++) {
-          tmp = (i + jBcol) - 1;
-          B[tmp] -= A[(i + kAcol) - 1] * B[B_tmp];
-        }
+  int16_T s_tmp;
+  int16_T s_tmp_0;
+  for (i = 0; i < 2; i++) {
+    for (colB = 0; colB < 2; colB++) {
+      s_tmp = i << 1U;
+      s_tmp_0 = s_tmp + colB;
+      s = B[s_tmp_0];
+      for (j = 0; j < i; j++) {
+        s -= A[s_tmp] * B[colB];
       }
+
+      B[s_tmp_0] = s / A[s_tmp + i];
     }
   }
 }
 
 /* Function for MATLAB Function: '<S2>/MPC' */
-static void MPC_Unconstrained(const real32_T Hinv[144], const real32_T f[12],
-  real32_T x[12])
+static void MPC_Unconstrained(const real32_T Hinv[4], const real32_T f[2],
+  real32_T x[2])
 {
-  real32_T Hinv_0;
-  int16_T i;
-  int16_T i_0;
-  for (i = 0; i < 12; i++) {
-    Hinv_0 = 0.0F;
-    for (i_0 = 0; i_0 < 12; i_0++) {
-      Hinv_0 += -Hinv[12 * i_0 + i] * f[i_0];
-    }
-
-    x[i] = Hinv_0;
-  }
-}
-
-real32_T rt_roundf_snf(real32_T u)
-{
-  real32_T y;
-  if (fabsf(u) < 8.388608E+6F) {
-    if (u >= 0.5F) {
-      y = (real32_T)floor(u + 0.5F);
-    } else if (u > -0.5F) {
-      y = u * 0.0F;
-    } else {
-      y = (real32_T)ceil(u - 0.5F);
-    }
-  } else {
-    y = u;
-  }
-
-  return y;
+  x[0] = f[0] * -Hinv[0] + f[1] * -Hinv[1];
+  x[1] = f[0] * -Hinv[2] + f[1] * -Hinv[3];
 }
 
 /* Function for MATLAB Function: '<S2>/MPC' */
-static real32_T MPC_norm(const real32_T x[12])
+static real32_T MPC_norm(const real32_T x[2])
 {
   real32_T absxk;
   real32_T scale;
   real32_T t;
   real32_T y;
-  int16_T k;
-  y = 0.0F;
   scale = 1.29246971E-26F;
-  for (k = 0; k < 12; k++) {
-    absxk = fabsf(x[k]);
-    if (absxk > scale) {
-      t = scale / absxk;
-      y = y * t * t + 1.0F;
-      scale = absxk;
-    } else {
-      t = absxk / scale;
-      y += t * t;
-    }
+  absxk = fabsf(x[0]);
+  if (absxk > 1.29246971E-26F) {
+    y = 1.0F;
+    scale = absxk;
+  } else {
+    t = absxk / 1.29246971E-26F;
+    y = t * t;
+  }
+
+  absxk = fabsf(x[1]);
+  if (absxk > scale) {
+    t = scale / absxk;
+    y = y * t * t + 1.0F;
+    scale = absxk;
+  } else {
+    t = absxk / scale;
+    y += t * t;
   }
 
   return scale * (real32_T)sqrt(y);
 }
 
 /* Function for MATLAB Function: '<S2>/MPC' */
-static real32_T MPC_maximum(const real32_T x[12])
+static void MPC_abs(const real32_T x[2], real32_T y[2])
+{
+  y[0] = fabsf(x[0]);
+  y[1] = fabsf(x[1]);
+}
+
+/* Function for MATLAB Function: '<S2>/MPC' */
+static real32_T MPC_maximum(const real32_T x[2])
 {
   real32_T ex;
-  real32_T x_0;
-  int16_T idx;
-  int16_T k;
-  boolean_T exitg1;
-  if (!rtIsNaNF(x[0])) {
-    idx = 1;
-  } else {
-    idx = 0;
-    k = 2;
-    exitg1 = false;
-    while ((!exitg1) && (k < 13)) {
-      if (!rtIsNaNF(x[k - 1])) {
-        idx = k;
-        exitg1 = true;
-      } else {
-        k++;
-      }
+  if (x[0] < x[1]) {
+    ex = x[1];
+  } else if (rtIsNaNF(x[0])) {
+    if (!rtIsNaNF(x[1])) {
+      ex = x[1];
+    } else {
+      ex = (rtNaNF);
     }
-  }
-
-  if (idx == 0) {
+  } else {
     ex = x[0];
-  } else {
-    ex = x[idx - 1];
-    for (k = idx + 1; k < 13; k++) {
-      x_0 = x[k - 1];
-      if (ex < x_0) {
-        ex = x_0;
-      }
-    }
   }
 
   return ex;
 }
 
 /* Function for MATLAB Function: '<S2>/MPC' */
-static real32_T MPC_xnrm2(int16_T n, const real32_T x[144], int16_T ix0)
+static void MPC_abs_i(real32_T y[4])
 {
-  real32_T absxk;
-  real32_T scale;
-  real32_T t;
-  real32_T y;
-  int16_T k;
-  int16_T kend;
-  y = 0.0F;
-  if (n >= 1) {
-    if (n == 1) {
-      y = fabsf(x[ix0 - 1]);
-    } else {
-      scale = 1.29246971E-26F;
-      kend = (ix0 + n) - 1;
-      for (k = ix0; k <= kend; k++) {
-        absxk = fabsf(x[k - 1]);
-        if (absxk > scale) {
-          t = scale / absxk;
-          y = y * t * t + 1.0F;
-          scale = absxk;
-        } else {
-          t = absxk / scale;
-          y += t * t;
-        }
-      }
+  y[0] = 24.0F;
+  y[1] = 24.0F;
+  y[2] = 24.0F;
+  y[3] = 24.0F;
+}
 
-      y = scale * (real32_T)sqrt(y);
-    }
+/* Function for MATLAB Function: '<S2>/MPC' */
+static void MPC_maximum2(const real32_T x[4], real32_T ex[4])
+{
+  if (x[0] >= 1.0F) {
+    ex[0] = x[0];
+  } else {
+    ex[0] = 1.0F;
   }
 
-  return y;
+  if (x[1] >= 1.0F) {
+    ex[1] = x[1];
+  } else {
+    ex[1] = 1.0F;
+  }
+
+  if (x[2] >= 1.0F) {
+    ex[2] = x[2];
+  } else {
+    ex[2] = 1.0F;
+  }
+
+  if (x[3] >= 1.0F) {
+    ex[3] = x[3];
+  } else {
+    ex[3] = 1.0F;
+  }
 }
 
 real32_T rt_hypotf_snf(real32_T u0, real32_T u1)
@@ -319,25 +279,23 @@ real32_T rt_hypotf_snf(real32_T u0, real32_T u1)
 }
 
 /* Function for MATLAB Function: '<S2>/MPC' */
-static void MPC_xgemv(int16_T m, int16_T n, const real32_T A[144], int16_T ia0,
-                      const real32_T x[144], int16_T ix0, real32_T y[12])
+static void MPC_xgemv(int16_T m, int16_T n, const real32_T A[4], int16_T ia0,
+                      const real32_T x[4], int16_T ix0, real32_T y[2])
 {
   real32_T c;
   int16_T b;
-  int16_T b_iy;
-  int16_T d;
   int16_T ia;
+  int16_T iac;
   if (n != 0) {
-    memset(&y[0], 0, (uint16_T)n * sizeof(real32_T));
-    b = (n - 1) * 12 + ia0;
-    for (b_iy = ia0; b_iy <= b; b_iy += 12) {
+    y[0] = 0.0F;
+    for (iac = ia0; iac <= ia0; iac += 2) {
       c = 0.0F;
-      d = (b_iy + m) - 1;
-      for (ia = b_iy; ia <= d; ia++) {
-        c += x[((ix0 + ia) - b_iy) - 1] * A[ia - 1];
+      b = (iac + m) - 1;
+      for (ia = iac; ia <= b; ia++) {
+        c += x[((ix0 + ia) - iac) - 1] * A[ia - 1];
       }
 
-      ia = div_nde_s16_floor(b_iy - ia0, 12);
+      ia = (iac - ia0) >> 1U;
       y[ia] += c;
     }
   }
@@ -345,7 +303,7 @@ static void MPC_xgemv(int16_T m, int16_T n, const real32_T A[144], int16_T ia0,
 
 /* Function for MATLAB Function: '<S2>/MPC' */
 static void MPC_xgerc(int16_T m, int16_T n, real32_T alpha1, int16_T ix0, const
-                      real32_T y[12], real32_T A[144], int16_T ia0)
+                      real32_T y[2], real32_T A[4], int16_T ia0)
 {
   real32_T temp;
   int16_T b;
@@ -364,290 +322,298 @@ static void MPC_xgerc(int16_T m, int16_T n, real32_T alpha1, int16_T ix0, const
         }
       }
 
-      jA += 12;
+      jA += 2;
     }
   }
 }
 
 /* Function for MATLAB Function: '<S2>/MPC' */
-static real32_T MPC_KWIKfactor(const real32_T Ac[288], const int32_T iC[24],
-  int32_T nA, const real32_T Linv[144], real32_T RLinv[144], real32_T D[144],
-  real32_T H[144])
+static real32_T MPC_KWIKfactor(const real32_T Ac[8], const int32_T iC[4],
+  int32_T nA, const real32_T Linv[4], real32_T RLinv[4], real32_T D[4], real32_T
+  H[4])
 {
-  int32_T b_k;
   int32_T d_k;
   int32_T exitg1;
   int32_T i;
-  real32_T tau[12];
-  real32_T work[12];
+  real32_T A[4];
+  real32_T Q[4];
+  real32_T TL[4];
+  real32_T tau[2];
+  real32_T work[2];
+  real32_T A_0;
+  real32_T A_1;
+  real32_T A_2;
+  real32_T Linv_0;
+  real32_T Linv_1;
   real32_T Status;
-  real32_T TL;
-  real32_T atmp;
   real32_T beta1;
   int16_T b_lastv;
   int16_T c_lastc;
-  int16_T f_tmp;
-  int16_T i_0;
+  int16_T i_i;
   int16_T ii;
   int16_T knt;
-  boolean_T exitg2;
   Status = 1.0F;
-  memset(&RLinv[0], 0, 144U * sizeof(real32_T));
+  RLinv[0] = 0.0F;
+  RLinv[1] = 0.0F;
+  RLinv[2] = 0.0F;
+  RLinv[3] = 0.0F;
   for (i = 1L; i <= nA; i++) {
-    c_lastc = (int16_T)iC[(int16_T)i - 1];
-    for (i_0 = 0; i_0 < 12; i_0++) {
-      b_lastv = ((int16_T)i - 1) * 12 + i_0;
-      RLinv[b_lastv] = 0.0F;
-      for (ii = 0; ii < 12; ii++) {
-        RLinv[b_lastv] += Ac[(24 * ii + c_lastc) - 1] * Linv[12 * ii + i_0];
-      }
-    }
+    RLinv[(int16_T)i - 1] = 0.0F;
+    i_i = ((int16_T)iC[(int16_T)i - 1] - 1) << 1U;
+    A_0 = Ac[i_i];
+    RLinv[(int16_T)i - 1] += A_0 * Linv[0];
+    beta1 = Ac[i_i + 1];
+    RLinv[(int16_T)i - 1] += beta1 * Linv[1];
+    RLinv[(int16_T)i + 1] = 0.0F;
+    RLinv[(int16_T)i + 1] += A_0 * Linv[2];
+    RLinv[(int16_T)i + 1] += beta1 * Linv[3];
   }
 
-  memcpy(&MPC_B.TL[0], &RLinv[0], 144U * sizeof(real32_T));
-  for (i_0 = 0; i_0 < 12; i_0++) {
-    tau[i_0] = 0.0F;
-    work[i_0] = 0.0F;
-  }
-
-  for (i_0 = 0; i_0 < 12; i_0++) {
-    ii = i_0 * 12 + i_0;
-    if (i_0 + 1 < 12) {
-      atmp = MPC_B.TL[ii];
-      b_lastv = ii + 2;
-      tau[i_0] = 0.0F;
-      beta1 = MPC_xnrm2(11 - i_0, MPC_B.TL, ii + 2);
+  A[0] = RLinv[0];
+  A[1] = RLinv[2];
+  tau[0] = 0.0F;
+  work[0] = 0.0F;
+  A[2] = RLinv[1];
+  A[3] = RLinv[3];
+  tau[1] = 0.0F;
+  work[1] = 0.0F;
+  for (i_i = 0; i_i < 2; i_i++) {
+    ii = (i_i << 1U) + i_i;
+    if (i_i + 1 < 2) {
+      A_0 = A[ii];
+      c_lastc = ii + 2;
+      tau[0] = 0.0F;
+      beta1 = fabsf(A[ii + 1]);
       if (beta1 != 0.0F) {
-        TL = MPC_B.TL[ii];
-        beta1 = rt_hypotf_snf(TL, beta1);
-        if (TL >= 0.0F) {
+        beta1 = rt_hypotf_snf(A_0, beta1);
+        if (A_0 >= 0.0F) {
           beta1 = -beta1;
         }
 
         if (fabsf(beta1) < 9.86076132E-32F) {
           knt = 0;
-          f_tmp = (ii - i_0) + 12;
           do {
             knt++;
-            for (c_lastc = b_lastv; c_lastc <= f_tmp; c_lastc++) {
-              MPC_B.TL[c_lastc - 1] *= 1.01412048E+31F;
+            for (b_lastv = c_lastc; b_lastv <= ii + 2; b_lastv++) {
+              A[b_lastv - 1] *= 1.01412048E+31F;
             }
 
             beta1 *= 1.01412048E+31F;
-            atmp *= 1.01412048E+31F;
+            A_0 *= 1.01412048E+31F;
           } while ((fabsf(beta1) < 9.86076132E-32F) && (knt < 20));
 
-          beta1 = rt_hypotf_snf(atmp, MPC_xnrm2(11 - i_0, MPC_B.TL, ii + 2));
-          if (atmp >= 0.0F) {
+          beta1 = rt_hypotf_snf(A_0, fabsf(A[ii + 1]));
+          if (A_0 >= 0.0F) {
             beta1 = -beta1;
           }
 
-          tau[i_0] = (beta1 - atmp) / beta1;
-          atmp = 1.0F / (atmp - beta1);
-          for (c_lastc = b_lastv; c_lastc <= f_tmp; c_lastc++) {
-            MPC_B.TL[c_lastc - 1] *= atmp;
+          tau[0] = (beta1 - A_0) / beta1;
+          A_0 = 1.0F / (A_0 - beta1);
+          for (b_lastv = c_lastc; b_lastv <= ii + 2; b_lastv++) {
+            A[b_lastv - 1] *= A_0;
           }
 
           for (b_lastv = 0; b_lastv < knt; b_lastv++) {
             beta1 *= 9.86076132E-32F;
           }
 
-          atmp = beta1;
+          A_0 = beta1;
         } else {
-          tau[i_0] = (beta1 - TL) / beta1;
-          atmp = 1.0F / (TL - beta1);
-          knt = (ii - i_0) + 12;
-          for (c_lastc = b_lastv; c_lastc <= knt; c_lastc++) {
-            MPC_B.TL[c_lastc - 1] *= atmp;
+          tau[0] = (beta1 - A_0) / beta1;
+          A_0 = 1.0F / (A_0 - beta1);
+          for (b_lastv = c_lastc; b_lastv <= ii + 2; b_lastv++) {
+            A[b_lastv - 1] *= A_0;
           }
 
-          atmp = beta1;
+          A_0 = beta1;
         }
       }
 
-      MPC_B.TL[ii] = 1.0F;
-      if (tau[i_0] != 0.0F) {
-        b_lastv = 12 - i_0;
-        c_lastc = (ii - i_0) + 11;
-        while ((b_lastv > 0) && (MPC_B.TL[c_lastc] == 0.0F)) {
+      A[ii] = 1.0F;
+      if (tau[0] != 0.0F) {
+        b_lastv = 2;
+        c_lastc = ii + 1;
+        while ((b_lastv > 0) && (A[c_lastc] == 0.0F)) {
           b_lastv--;
           c_lastc--;
         }
 
-        c_lastc = 11 - i_0;
-        exitg2 = false;
-        while ((!exitg2) && (c_lastc > 0)) {
-          knt = ((c_lastc - 1) * 12 + ii) + 12;
-          f_tmp = knt;
-          do {
-            exitg1 = 0L;
-            if (f_tmp + 1 <= knt + b_lastv) {
-              if (MPC_B.TL[f_tmp] != 0.0F) {
-                exitg1 = 1L;
-              } else {
-                f_tmp++;
-              }
+        c_lastc = 1;
+        knt = ii + 2;
+        do {
+          exitg1 = 0L;
+          if (knt + 1 <= (ii + b_lastv) + 2) {
+            if (A[knt] != 0.0F) {
+              exitg1 = 1L;
             } else {
-              c_lastc--;
-              exitg1 = 2L;
+              knt++;
             }
-          } while (exitg1 == 0L);
-
-          if (exitg1 == 1L) {
-            exitg2 = true;
+          } else {
+            c_lastc = 0;
+            exitg1 = 1L;
           }
-        }
+        } while (exitg1 == 0L);
       } else {
         b_lastv = 0;
         c_lastc = 0;
       }
 
       if (b_lastv > 0) {
-        MPC_xgemv(b_lastv, c_lastc, MPC_B.TL, ii + 13, MPC_B.TL, ii + 1, work);
-        MPC_xgerc(b_lastv, c_lastc, -tau[i_0], ii + 1, work, MPC_B.TL, ii + 13);
+        MPC_xgemv(b_lastv, c_lastc, A, ii + 3, A, ii + 1, work);
+        MPC_xgerc(b_lastv, c_lastc, -tau[0], ii + 1, work, A, ii + 3);
       }
 
-      MPC_B.TL[ii] = atmp;
+      A[ii] = A_0;
     } else {
-      tau[11] = 0.0F;
+      tau[1] = 0.0F;
     }
   }
 
-  for (i_0 = 0; i_0 < 12; i_0++) {
-    for (ii = 0; ii <= i_0; ii++) {
-      MPC_B.R[ii + 12 * i_0] = MPC_B.TL[12 * i_0 + ii];
+  for (i_i = 0; i_i < 2; i_i++) {
+    for (ii = 0; ii <= i_i; ii++) {
+      b_lastv = i_i << 1U;
+      TL[ii + b_lastv] = A[b_lastv + ii];
     }
 
-    for (ii = i_0 + 2; ii < 13; ii++) {
-      MPC_B.R[(ii + 12 * i_0) - 1] = 0.0F;
+    if (i_i + 2 <= 2) {
+      TL[(i_i << 1U) + 1] = 0.0F;
     }
 
-    work[i_0] = 0.0F;
+    work[i_i] = 0.0F;
   }
 
-  for (i_0 = 11; i_0 >= 0; i_0--) {
-    ii = (i_0 * 12 + i_0) + 13;
-    if (i_0 + 1 < 12) {
-      MPC_B.TL[ii - 13] = 1.0F;
-      if (tau[i_0] != 0.0F) {
-        b_lastv = 12 - i_0;
-        c_lastc = ii - i_0;
-        while ((b_lastv > 0) && (MPC_B.TL[c_lastc - 2] == 0.0F)) {
+  for (i_i = 1; i_i >= 0; i_i--) {
+    ii = ((i_i << 1U) + i_i) + 2;
+    if (i_i + 1 < 2) {
+      A[ii - 2] = 1.0F;
+      if (tau[i_i] != 0.0F) {
+        b_lastv = 2;
+        c_lastc = ii;
+        while ((b_lastv > 0) && (A[c_lastc - 1] == 0.0F)) {
           b_lastv--;
           c_lastc--;
         }
 
-        c_lastc = 11 - i_0;
-        exitg2 = false;
-        while ((!exitg2) && (c_lastc > 0)) {
-          knt = (c_lastc - 1) * 12 + ii;
-          f_tmp = knt;
-          do {
-            exitg1 = 0L;
-            if (f_tmp <= (knt + b_lastv) - 1) {
-              if (MPC_B.TL[f_tmp - 1] != 0.0F) {
-                exitg1 = 1L;
-              } else {
-                f_tmp++;
-              }
+        c_lastc = 1;
+        knt = ii;
+        do {
+          exitg1 = 0L;
+          if (knt + 1 <= ii + b_lastv) {
+            if (A[knt] != 0.0F) {
+              exitg1 = 1L;
             } else {
-              c_lastc--;
-              exitg1 = 2L;
+              knt++;
             }
-          } while (exitg1 == 0L);
-
-          if (exitg1 == 1L) {
-            exitg2 = true;
+          } else {
+            c_lastc = 0;
+            exitg1 = 1L;
           }
-        }
+        } while (exitg1 == 0L);
       } else {
         b_lastv = 0;
         c_lastc = 0;
       }
 
       if (b_lastv > 0) {
-        MPC_xgemv(b_lastv, c_lastc, MPC_B.TL, ii, MPC_B.TL, ii - 12, work);
-        MPC_xgerc(b_lastv, c_lastc, -tau[i_0], ii - 12, work, MPC_B.TL, ii);
+        MPC_xgemv(b_lastv, c_lastc, A, ii + 1, A, ii - 1, work);
+        MPC_xgerc(b_lastv, c_lastc, -tau[i_i], ii - 1, work, A, ii + 1);
       }
 
-      c_lastc = (ii - i_0) - 1;
-      for (b_lastv = ii - 11; b_lastv <= c_lastc; b_lastv++) {
-        MPC_B.TL[b_lastv - 1] *= -tau[i_0];
+      for (b_lastv = ii; b_lastv <= ii; b_lastv++) {
+        A[b_lastv - 1] *= -tau[i_i];
       }
     }
 
-    MPC_B.TL[ii - 13] = 1.0F - tau[i_0];
-    for (b_lastv = 0; b_lastv < i_0; b_lastv++) {
-      MPC_B.TL[(ii - b_lastv) - 14] = 0.0F;
+    A[ii - 2] = 1.0F - tau[i_i];
+    if (i_i - 1 >= 0) {
+      A[ii - 3] = 0.0F;
     }
   }
 
-  memcpy(&MPC_B.Q[0], &MPC_B.TL[0], 144U * sizeof(real32_T));
+  Q[0] = A[0];
+  Q[1] = A[1];
+  Q[2] = A[2];
+  Q[3] = A[3];
+  A[0] = Q[0];
+  A[1] = Q[2];
+  A[2] = Q[1];
+  A[3] = Q[3];
+  Q[0] = TL[0];
+  Q[1] = TL[2];
+  Q[2] = TL[1];
+  Q[3] = TL[3];
   i = 1L;
   do {
     exitg1 = 0L;
     if (i <= nA) {
-      if (fabsf(MPC_B.R[(((int16_T)i - 1) * 12 + (int16_T)i) - 1]) < 1.0E-12F) {
+      if (fabsf(Q[((((int16_T)i - 1) << 1U) + (int16_T)i) - 1]) < 1.0E-12F) {
         Status = -2.0F;
         exitg1 = 1L;
       } else {
         i++;
       }
     } else {
-      for (ii = 0; ii < 12; ii++) {
-        for (b_lastv = 0; b_lastv < 12; b_lastv++) {
-          beta1 = 0.0F;
-          for (i_0 = 0; i_0 < 12; i_0++) {
-            beta1 += Linv[12 * ii + i_0] * MPC_B.Q[12 * b_lastv + i_0];
-          }
-
-          MPC_B.TL[ii + 12 * b_lastv] = beta1;
-        }
+      A_0 = A[2];
+      beta1 = A[0];
+      A_1 = A[3];
+      A_2 = A[1];
+      for (i_i = 0; i_i < 2; i_i++) {
+        Linv_0 = Linv[i_i + 2];
+        Linv_1 = Linv[i_i];
+        b_lastv = i_i << 1U;
+        TL[b_lastv] = Linv_0 * A_0 + beta1 * Linv_1;
+        TL[b_lastv + 1] = Linv_0 * A_1 + A_2 * Linv_1;
       }
 
-      memset(&RLinv[0], 0, 144U * sizeof(real32_T));
+      RLinv[0] = 0.0F;
+      RLinv[1] = 0.0F;
+      RLinv[2] = 0.0F;
+      RLinv[3] = 0.0F;
       for (i = nA; i > 0L; i--) {
-        i_0 = ((int16_T)i - 1) * 12;
-        b_lastv = ((int16_T)i + i_0) - 1;
-        RLinv[b_lastv] = 1.0F;
+        i_i = ((int16_T)i - 1) << 1U;
+        ii = ((int16_T)i + i_i) - 1;
+        RLinv[ii] = 1.0F;
         for (d_k = i; d_k <= nA; d_k++) {
-          ii = (((int16_T)d_k - 1) * 12 + (int16_T)i) - 1;
-          RLinv[ii] /= MPC_B.R[b_lastv];
+          b_lastv = (i_i + (int16_T)d_k) - 1;
+          RLinv[b_lastv] /= Q[ii];
         }
 
         if (i > 1L) {
-          for (d_k = 1L; d_k < i; d_k++) {
-            for (b_k = i; b_k <= nA; b_k++) {
-              b_lastv = ((int16_T)b_k - 1) * 12;
-              ii = (b_lastv + (int16_T)d_k) - 1;
-              RLinv[ii] -= MPC_B.R[(i_0 + (int16_T)d_k) - 1] * RLinv[(b_lastv +
-                (int16_T)i) - 1];
-            }
+          for (d_k = 2L; d_k <= nA; d_k++) {
+            RLinv[1] -= Q[1] * RLinv[3];
           }
         }
       }
 
-      for (ii = 0; ii < 12; ii++) {
-        for (c_lastc = ii; c_lastc + 1 < 13; c_lastc++) {
-          i_0 = 12 * c_lastc + ii;
-          H[i_0] = 0.0F;
-          for (i = nA + 1L; i < 13L; i++) {
-            b_lastv = ((int16_T)i - 1) * 12;
-            H[i_0] -= MPC_B.TL[b_lastv + ii] * MPC_B.TL[b_lastv + c_lastc];
-          }
-
-          H[c_lastc + 12 * ii] = H[i_0];
+      for (i_i = 0; i_i + 1 < 3; i_i++) {
+        H[i_i] = 0.0F;
+        for (i = nA + 1L; i < 3L; i++) {
+          H[i_i] -= TL[((i_i << 1U) + (int16_T)i) - 1] * TL[(int16_T)i - 1];
         }
+
+        H[i_i << 1U] = H[i_i];
+      }
+
+      for (i_i = 1; i_i + 1 < 3; i_i++) {
+        H[i_i + 2] = 0.0F;
+        for (i = nA + 1L; i < 3L; i++) {
+          H[i_i + 2] -= TL[((i_i << 1U) + (int16_T)i) - 1] * TL[(int16_T)i + 1];
+        }
+
+        H[(i_i << 1U) + 1] = H[i_i + 2];
       }
 
       for (i = 1L; i <= nA; i++) {
-        for (ii = 0; ii < 12; ii++) {
-          i_0 = ((int16_T)i - 1) * 12 + ii;
-          D[i_0] = 0.0F;
-          for (d_k = i; (uint32_T)d_k <= (uint32_T)nA; d_k++) {
-            b_lastv = ((int16_T)d_k - 1) * 12;
-            D[i_0] += RLinv[(b_lastv + (int16_T)i) - 1] * MPC_B.TL[b_lastv + ii];
-          }
+        D[(int16_T)i - 1] = 0.0F;
+        for (d_k = i; (uint32_T)d_k <= (uint32_T)nA; d_k++) {
+          D[(int16_T)i - 1] += RLinv[((((int16_T)i - 1) << 1U) + (int16_T)d_k) -
+            1] * TL[(int16_T)d_k - 1];
+        }
+
+        D[(int16_T)i + 1] = 0.0F;
+        for (d_k = i; (uint32_T)d_k <= (uint32_T)nA; d_k++) {
+          D[(int16_T)i + 1] += RLinv[((((int16_T)i - 1) << 1U) + (int16_T)d_k) -
+            1] * TL[(int16_T)d_k + 1];
         }
       }
 
@@ -659,21 +625,14 @@ static real32_T MPC_KWIKfactor(const real32_T Ac[288], const int32_T iC[24],
 }
 
 /* Function for MATLAB Function: '<S2>/MPC' */
-static real32_T MPC_mtimes(const real32_T A[12], const real32_T B[12])
+static real32_T MPC_mtimes(const real32_T A[2], const real32_T B[2])
 {
-  real32_T C;
-  int16_T k;
-  C = 0.0F;
-  for (k = 0; k < 12; k++) {
-    C += A[k] * B[k];
-  }
-
-  return C;
+  return A[0] * B[0] + A[1] * B[1];
 }
 
 /* Function for MATLAB Function: '<S2>/MPC' */
-static void MPC_DropConstraint(int32_T kDrop, boolean_T iA[24], int32_T *nA,
-  int32_T iC[24])
+static void MPC_DropConstraint(int32_T kDrop, boolean_T iA[4], int32_T *nA,
+  int32_T iC[4])
 {
   int32_T b;
   int32_T i;
@@ -692,10 +651,11 @@ static void MPC_DropConstraint(int32_T kDrop, boolean_T iA[24], int32_T *nA,
 }
 
 /* Function for MATLAB Function: '<S2>/MPC' */
-static void MPC_qpkwik(const real32_T Linv[144], const real32_T Hinv[144], const
-  real32_T f[12], const real32_T Ac[288], boolean_T iA[24], real32_T x[12],
-  real32_T lambda[24], int32_T *status)
+static void MPC_qpkwik(const real32_T Linv[4], const real32_T Hinv[4], const
+  real32_T f[2], const real32_T Ac[8], boolean_T iA[4], real32_T x[2], real32_T
+  lambda[4], int32_T *status)
 {
+  int32_T iC[4];
   int32_T b_i;
   int32_T e_i;
   int32_T exitg1;
@@ -704,18 +664,25 @@ static void MPC_qpkwik(const real32_T Linv[144], const real32_T Hinv[144], const
   int32_T j_i;
   int32_T kDrop;
   int32_T nA;
-  real32_T Rhs[24];
-  real32_T Ac_0[12];
-  real32_T r[12];
-  real32_T z[12];
+  real32_T D[4];
+  real32_T H[4];
+  real32_T Opt[4];
+  real32_T RLinv[4];
+  real32_T Rhs[4];
+  real32_T U[4];
+  real32_T cTol[4];
+  real32_T Ac_0[2];
+  real32_T r[2];
+  real32_T z[2];
   real32_T Xnorm0;
   real32_T cMin;
   real32_T cVal;
   real32_T rMin;
+  real32_T t;
   real32_T zTa;
+  int16_T Ac_tmp;
   int16_T f_i;
-  int16_T i;
-  int16_T tmp;
+  int16_T kNext;
   boolean_T ColdReset;
   boolean_T DualFeasible;
   boolean_T cTolComputed;
@@ -723,206 +690,208 @@ static void MPC_qpkwik(const real32_T Linv[144], const real32_T Hinv[144], const
   boolean_T exitg4;
   boolean_T guard1;
   boolean_T guard2;
-  for (i = 0; i < 12; i++) {
-    x[i] = 0.0F;
-  }
-
-  for (i = 0; i < 24; i++) {
-    lambda[i] = 0.0F;
-  }
-
+  x[0] = 0.0F;
+  x[1] = 0.0F;
+  lambda[0] = 0.0F;
+  lambda[1] = 0.0F;
+  lambda[2] = 0.0F;
+  lambda[3] = 0.0F;
   *status = 1L;
-  for (i = 0; i < 12; i++) {
-    r[i] = 0.0F;
-  }
-
+  r[0] = 0.0F;
+  r[1] = 0.0F;
   rMin = 0.0F;
   cTolComputed = false;
-  for (i = 0; i < 24; i++) {
-    MPC_B.cTol[i] = 1.0F;
-    MPC_B.iC[i] = 0L;
+  cTol[0] = 1.0F;
+  iC[0] = 0L;
+  cTol[1] = 1.0F;
+  iC[1] = 0L;
+  cTol[2] = 1.0F;
+  iC[2] = 0L;
+  cTol[3] = 1.0F;
+  iC[3] = 0L;
+  nA = 0L;
+  if (iA[0]) {
+    nA = 1L;
+    iC[0] = 1L;
   }
 
-  nA = 0L;
-  for (i = 0; i < 24; i++) {
-    if (iA[i]) {
-      nA = (int16_T)nA + 1;
-      MPC_B.iC[(int16_T)nA - 1] = i + 1;
-    }
+  if (iA[1]) {
+    nA = (int16_T)nA + 1;
+    iC[(int16_T)nA - 1] = 2L;
+  }
+
+  if (iA[2]) {
+    nA = (int16_T)nA + 1;
+    iC[(int16_T)nA - 1] = 3L;
+  }
+
+  if (iA[3]) {
+    nA = (int16_T)nA + 1;
+    iC[(int16_T)nA - 1] = 4L;
   }
 
   guard1 = false;
   if ((int16_T)nA > 0) {
-    for (i = 0; i < 24; i++) {
-      MPC_B.Opt[i] = 0.0F;
-    }
-
-    for (i = 0; i < 12; i++) {
-      Rhs[i] = f[i];
-      Rhs[i + 12] = 0.0F;
-    }
-
+    Opt[2] = 0.0F;
+    Opt[3] = 0.0F;
+    Rhs[0] = f[0];
+    Rhs[2] = 0.0F;
+    Rhs[1] = f[1];
+    Rhs[3] = 0.0F;
     DualFeasible = false;
-    tmp = (int16_T)rt_roundf_snf(0.3F * (real32_T)nA);
     ColdReset = false;
     do {
       exitg3 = 0L;
       if ((!DualFeasible) && (nA > 0L) && ((int16_T)*status <= 200)) {
-        Xnorm0 = MPC_KWIKfactor(Ac, MPC_B.iC, nA, Linv, MPC_B.RLinv, MPC_B.D,
-          MPC_B.H);
+        Xnorm0 = MPC_KWIKfactor(Ac, iC, nA, Linv, RLinv, D, H);
         if (Xnorm0 < 0.0F) {
           if (ColdReset) {
             *status = -2L;
             exitg3 = 2L;
           } else {
-            for (i = 0; i < 24; i++) {
-              iA[i] = false;
-              MPC_B.iC[i] = 0L;
-            }
-
+            iA[0] = false;
+            iC[0] = 0L;
+            iA[1] = false;
+            iC[1] = 0L;
+            iA[2] = false;
+            iC[2] = 0L;
+            iA[3] = false;
+            iC[3] = 0L;
             nA = 0L;
             ColdReset = true;
           }
         } else {
           for (kDrop = 1L; kDrop <= nA; kDrop++) {
-            if (kDrop > 2147483635L) {
+            if (kDrop > 2147483645L) {
               b_i = MAX_int32_T;
             } else {
-              b_i = kDrop + 12L;
+              b_i = kDrop + 2L;
             }
 
             Rhs[(int16_T)b_i - 1] = -24.0F;
             for (b_i = kDrop; b_i <= nA; b_i++) {
-              i = (((int16_T)kDrop - 1) * 12 + (int16_T)b_i) - 1;
-              MPC_B.U[i] = 0.0F;
+              kNext = ((int16_T)b_i - 1) << 1U;
+              f_i = ((int16_T)kDrop + kNext) - 1;
+              U[f_i] = 0.0F;
               for (e_i = 1L; e_i <= nA; e_i++) {
-                f_i = ((int16_T)e_i - 1) * 12;
-                MPC_B.U[i] += MPC_B.RLinv[(f_i + (int16_T)b_i) - 1] *
-                  MPC_B.RLinv[(f_i + (int16_T)kDrop) - 1];
+                U[f_i] += RLinv[((((int16_T)kDrop - 1) << 1U) + (int16_T)e_i) -
+                  1] * RLinv[(kNext + (int16_T)e_i) - 1];
               }
 
-              MPC_B.U[((int16_T)kDrop + 12 * ((int16_T)b_i - 1)) - 1] =
-                MPC_B.U[i];
+              U[((int16_T)b_i + (((int16_T)kDrop - 1) << 1U)) - 1] = U[f_i];
             }
           }
 
-          for (f_i = 0; f_i < 12; f_i++) {
-            Xnorm0 = 0.0F;
-            for (i = 0; i < 12; i++) {
-              Xnorm0 += MPC_B.H[12 * i + f_i] * Rhs[i];
+          Opt[0] = Rhs[0] * H[0] + Rhs[1] * H[1];
+          for (kDrop = 1L; (uint32_T)kDrop <= (uint32_T)nA; kDrop++) {
+            if (kDrop > 2147483645L) {
+              b_i = MAX_int32_T;
+            } else {
+              b_i = kDrop + 2L;
             }
 
-            MPC_B.Opt[f_i] = Xnorm0;
-            for (kDrop = 1L; (uint32_T)kDrop <= (uint32_T)nA; kDrop++) {
-              if (kDrop > 2147483635L) {
-                b_i = MAX_int32_T;
-              } else {
-                b_i = kDrop + 12L;
-              }
+            Opt[0] += D[(int16_T)kDrop - 1] * Rhs[(int16_T)b_i - 1];
+          }
 
-              MPC_B.Opt[f_i] += MPC_B.D[((int16_T)kDrop - 1) * 12 + f_i] * Rhs
-                [(int16_T)b_i - 1];
+          Opt[1] = Rhs[0] * H[2] + Rhs[1] * H[3];
+          for (kDrop = 1L; (uint32_T)kDrop <= (uint32_T)nA; kDrop++) {
+            if (kDrop > 2147483645L) {
+              b_i = MAX_int32_T;
+            } else {
+              b_i = kDrop + 2L;
             }
+
+            Opt[1] += D[(int16_T)kDrop + 1] * Rhs[(int16_T)b_i - 1];
           }
 
           for (kDrop = 1L; (uint32_T)kDrop <= (uint32_T)nA; kDrop++) {
-            Xnorm0 = 0.0F;
-            for (i = 0; i < 12; i++) {
-              Xnorm0 += MPC_B.D[((int16_T)kDrop - 1) * 12 + i] * Rhs[i];
-            }
-
-            if (kDrop > 2147483635L) {
+            if (kDrop > 2147483645L) {
               b_i = MAX_int32_T;
             } else {
-              b_i = kDrop + 12L;
+              b_i = kDrop + 2L;
             }
 
-            MPC_B.Opt[(int16_T)b_i - 1] = Xnorm0;
+            Opt[(int16_T)b_i - 1] = D[(int16_T)kDrop - 1] * Rhs[0] + D[(int16_T)
+              kDrop + 1] * Rhs[1];
             if ((uint32_T)nA >= 1UL) {
-              if (kDrop > 2147483635L) {
+              if (kDrop > 2147483645L) {
                 g_i = MAX_int32_T;
                 j_i = MAX_int32_T;
               } else {
-                g_i = kDrop + 12L;
-                j_i = kDrop + 12L;
+                g_i = kDrop + 2L;
+                j_i = kDrop + 2L;
               }
             }
 
             for (e_i = 1L; (uint32_T)e_i <= (uint32_T)nA; e_i++) {
-              if (e_i > 2147483635L) {
+              if (e_i > 2147483645L) {
                 b_i = MAX_int32_T;
               } else {
-                b_i = e_i + 12L;
+                b_i = e_i + 2L;
               }
 
-              MPC_B.Opt[(int16_T)g_i - 1] = MPC_B.U[(((int16_T)e_i - 1) * 12 +
-                (int16_T)kDrop) - 1] * Rhs[(int16_T)b_i - 1] + MPC_B.Opt
-                [(int16_T)j_i - 1];
+              Opt[(int16_T)g_i - 1] = U[((((int16_T)kDrop - 1) << 1U) + (int16_T)
+                e_i) - 1] * Rhs[(int16_T)b_i - 1] + Opt[(int16_T)j_i - 1];
             }
           }
 
           Xnorm0 = -1.0E-12F;
           kDrop = 0L;
           for (e_i = 1L; (uint32_T)e_i <= (uint32_T)nA; e_i++) {
-            if (e_i > 2147483635L) {
+            if (e_i > 2147483645L) {
               b_i = MAX_int32_T;
             } else {
-              b_i = e_i + 12L;
+              b_i = e_i + 2L;
             }
 
-            lambda[(int16_T)MPC_B.iC[(int16_T)e_i - 1] - 1] = MPC_B.Opt[(int16_T)
-              b_i - 1];
-            if (e_i > 2147483635L) {
+            lambda[(int16_T)iC[(int16_T)e_i - 1] - 1] = Opt[(int16_T)b_i - 1];
+            if (e_i > 2147483645L) {
               b_i = MAX_int32_T;
             } else {
-              b_i = e_i + 12L;
+              b_i = e_i + 2L;
             }
 
-            if ((MPC_B.Opt[(int16_T)b_i - 1] < Xnorm0) && (e_i <= nA)) {
+            if ((Opt[(int16_T)b_i - 1] < Xnorm0) && (e_i <= nA)) {
               kDrop = e_i;
-              if (e_i > 2147483635L) {
+              if (e_i > 2147483645L) {
                 b_i = MAX_int32_T;
               } else {
-                b_i = e_i + 12L;
+                b_i = e_i + 2L;
               }
 
-              Xnorm0 = MPC_B.Opt[(int16_T)b_i - 1];
+              Xnorm0 = Opt[(int16_T)b_i - 1];
             }
           }
 
           if (kDrop <= 0L) {
             DualFeasible = true;
-            for (i = 0; i < 12; i++) {
-              x[i] = MPC_B.Opt[i];
-            }
+            x[0] = Opt[0];
+            x[1] = Opt[1];
           } else {
             *status = (int16_T)*status + 1;
-            if (tmp <= 5) {
-              i = 5;
-            } else {
-              i = tmp;
-            }
-
-            if ((int16_T)*status > i) {
-              for (i = 0; i < 24; i++) {
-                iA[i] = false;
-                MPC_B.iC[i] = 0L;
-              }
-
+            if ((int16_T)*status > 5) {
+              iA[0] = false;
+              iC[0] = 0L;
+              iA[1] = false;
+              iC[1] = 0L;
+              iA[2] = false;
+              iC[2] = 0L;
+              iA[3] = false;
+              iC[3] = 0L;
               nA = 0L;
               ColdReset = true;
             } else {
-              lambda[(int16_T)MPC_B.iC[(int16_T)kDrop - 1] - 1] = 0.0F;
-              MPC_DropConstraint(kDrop, iA, &nA, MPC_B.iC);
+              lambda[(int16_T)iC[(int16_T)kDrop - 1] - 1] = 0.0F;
+              MPC_DropConstraint(kDrop, iA, &nA, iC);
             }
           }
         }
       } else {
         if (nA <= 0L) {
-          for (i = 0; i < 24; i++) {
-            lambda[i] = 0.0F;
-          }
-
+          lambda[0] = 0.0F;
+          lambda[1] = 0.0F;
+          lambda[2] = 0.0F;
+          lambda[3] = 0.0F;
           MPC_Unconstrained(Hinv, f, x);
         }
 
@@ -943,38 +912,35 @@ static void MPC_qpkwik(const real32_T Linv[144], const real32_T Hinv[144], const
     exitg2 = false;
     while ((!exitg2) && ((int16_T)*status <= 200)) {
       cMin = -1.0E-6F;
-      tmp = -1;
-      for (f_i = 0; f_i < 24; f_i++) {
+      kNext = -1;
+      for (f_i = 0; f_i < 4; f_i++) {
         if (!cTolComputed) {
-          for (i = 0; i < 12; i++) {
-            z[i] = fabsf(Ac[24 * i + f_i] * x[i]);
-          }
-
-          cVal = MPC_B.cTol[f_i];
-          zTa = MPC_maximum(z);
-          if ((cVal >= zTa) || rtIsNaNF(zTa)) {
-            MPC_B.cTol[f_i] = cVal;
+          Ac_tmp = f_i << 1U;
+          Ac_0[0] = Ac[Ac_tmp] * x[0];
+          Ac_0[1] = Ac[Ac_tmp + 1] * x[1];
+          cVal = cTol[f_i];
+          MPC_abs(Ac_0, z);
+          t = MPC_maximum(z);
+          if ((cVal >= t) || rtIsNaNF(t)) {
+            cTol[f_i] = cVal;
           } else {
-            MPC_B.cTol[f_i] = zTa;
+            cTol[f_i] = t;
           }
         }
 
         if (!iA[f_i]) {
-          cVal = 0.0F;
-          for (i = 0; i < 12; i++) {
-            cVal += Ac[24 * i + f_i] * x[i];
-          }
-
-          cVal = (cVal - -24.0F) / MPC_B.cTol[f_i];
+          Ac_tmp = f_i << 1U;
+          cVal = ((Ac[Ac_tmp + 1] * x[1] + Ac[Ac_tmp] * x[0]) - -24.0F) /
+            cTol[f_i];
           if (cVal < cMin) {
             cMin = cVal;
-            tmp = f_i;
+            kNext = f_i;
           }
         }
       }
 
       cTolComputed = true;
-      if (tmp + 1 <= 0) {
+      if (kNext + 1 <= 0) {
         exitg2 = true;
       } else if ((int16_T)*status == 200) {
         *status = 0L;
@@ -982,47 +948,29 @@ static void MPC_qpkwik(const real32_T Linv[144], const real32_T Hinv[144], const
       } else {
         do {
           exitg1 = 0L;
-          if ((tmp + 1 > 0) && ((int16_T)*status <= 200)) {
+          if ((kNext + 1 > 0) && ((int16_T)*status <= 200)) {
             guard2 = false;
             if (nA == 0L) {
-              for (i = 0; i < 12; i++) {
-                cMin = 0.0F;
-                for (f_i = 0; f_i < 12; f_i++) {
-                  cMin += Hinv[12 * f_i + i] * Ac[24 * f_i + tmp];
-                }
-
-                z[i] = cMin;
-              }
-
+              f_i = kNext << 1U;
+              cMin = Ac[f_i + 1];
+              cVal = Ac[f_i];
+              z[0] = cMin * Hinv[1] + cVal * Hinv[0];
+              z[1] = cMin * Hinv[3] + cVal * Hinv[2];
               guard2 = true;
             } else {
-              cMin = MPC_KWIKfactor(Ac, MPC_B.iC, nA, Linv, MPC_B.RLinv, MPC_B.D,
-                                    MPC_B.H);
+              cMin = MPC_KWIKfactor(Ac, iC, nA, Linv, RLinv, D, H);
               if (cMin <= 0.0F) {
                 *status = -2L;
                 exitg1 = 1L;
               } else {
-                for (i = 0; i < 144; i++) {
-                  MPC_B.U[i] = -MPC_B.H[i];
-                }
-
-                for (i = 0; i < 12; i++) {
-                  cMin = 0.0F;
-                  for (f_i = 0; f_i < 12; f_i++) {
-                    cMin += MPC_B.U[12 * f_i + i] * Ac[24 * f_i + tmp];
-                  }
-
-                  z[i] = cMin;
-                }
-
+                f_i = kNext << 1U;
+                cMin = Ac[f_i + 1];
+                cVal = Ac[f_i];
+                z[0] = cMin * -H[1] + cVal * -H[0];
+                z[1] = cMin * -H[3] + cVal * -H[2];
                 for (g_i = 1L; g_i <= nA; g_i++) {
-                  cVal = 0.0F;
-                  for (i = 0; i < 12; i++) {
-                    cVal += MPC_B.D[((int16_T)g_i - 1) * 12 + i] * Ac[24 * i +
-                      tmp];
-                  }
-
-                  r[(int16_T)g_i - 1] = cVal;
+                  r[(int16_T)g_i - 1] = D[(int16_T)g_i + 1] * cMin + D[(int16_T)
+                    g_i - 1] * cVal;
                 }
 
                 guard2 = true;
@@ -1051,8 +999,7 @@ static void MPC_qpkwik(const real32_T Linv[144], const real32_T Hinv[144], const
                 for (g_i = 1L; g_i <= nA; g_i++) {
                   cVal = r[(int16_T)g_i - 1];
                   if (cVal > 1.0E-12F) {
-                    cVal = lambda[(int16_T)MPC_B.iC[(int16_T)g_i - 1] - 1] /
-                      cVal;
+                    cVal = lambda[(int16_T)iC[(int16_T)g_i - 1] - 1] / cVal;
                     if ((kDrop == 0L) || (cVal < rMin)) {
                       rMin = cVal;
                       kDrop = g_i;
@@ -1066,21 +1013,17 @@ static void MPC_qpkwik(const real32_T Linv[144], const real32_T Hinv[144], const
                 }
               }
 
-              for (i = 0; i < 12; i++) {
-                Ac_0[i] = Ac[24 * i + tmp];
-              }
-
+              Ac_tmp = kNext << 1U;
+              cVal = Ac[Ac_tmp];
+              Ac_0[0] = cVal;
+              t = Ac[Ac_tmp + 1];
+              Ac_0[1] = t;
               zTa = MPC_mtimes(z, Ac_0);
               if (zTa <= 0.0F) {
                 cVal = 0.0F;
                 ColdReset = true;
               } else {
-                cVal = 0.0F;
-                for (i = 0; i < 12; i++) {
-                  cVal += Ac[24 * i + tmp] * x[i];
-                }
-
-                cVal = (-24.0F - cVal) / zTa;
+                cVal = (-24.0F - (t * x[1] + cVal * x[0])) / zTa;
                 ColdReset = false;
               }
 
@@ -1089,56 +1032,54 @@ static void MPC_qpkwik(const real32_T Linv[144], const real32_T Hinv[144], const
                 exitg1 = 1L;
               } else {
                 if (ColdReset) {
-                  zTa = cMin;
+                  t = cMin;
                 } else if (DualFeasible) {
-                  zTa = cVal;
+                  t = cVal;
                 } else if (cMin < cVal) {
-                  zTa = cMin;
+                  t = cMin;
                 } else {
-                  zTa = cVal;
+                  t = cVal;
                 }
 
                 for (g_i = 1L; g_i <= nA; g_i++) {
-                  i = (int16_T)MPC_B.iC[(int16_T)g_i - 1] - 1;
-                  lambda[i] -= r[(int16_T)g_i - 1] * zTa;
-                  if (lambda[i] < 0.0F) {
-                    lambda[i] = 0.0F;
+                  f_i = (int16_T)iC[(int16_T)g_i - 1] - 1;
+                  lambda[f_i] -= r[(int16_T)g_i - 1] * t;
+                  if (lambda[f_i] < 0.0F) {
+                    lambda[f_i] = 0.0F;
                   }
                 }
 
-                lambda[tmp] += zTa;
-                if (fabsf(zTa - cMin) < 1.1920929E-7F) {
-                  MPC_DropConstraint(kDrop, iA, &nA, MPC_B.iC);
+                lambda[kNext] += t;
+                if (fabsf(t - cMin) < 1.1920929E-7F) {
+                  MPC_DropConstraint(kDrop, iA, &nA, iC);
                 }
 
                 if (!ColdReset) {
-                  for (i = 0; i < 12; i++) {
-                    x[i] += zTa * z[i];
-                  }
-
-                  if (fabsf(zTa - cVal) < 1.1920929E-7F) {
-                    if (nA == 12L) {
+                  x[0] += t * z[0];
+                  x[1] += t * z[1];
+                  if (fabsf(t - cVal) < 1.1920929E-7F) {
+                    if (nA == 2L) {
                       *status = -1L;
                       exitg1 = 1L;
                     } else {
                       nA = c28x_add_s32_s32_s32_sat(nA, 1L);
-                      MPC_B.iC[(int16_T)nA - 1] = tmp + 1;
+                      iC[(int16_T)nA - 1] = kNext + 1;
                       j_i = nA;
                       exitg4 = false;
                       while ((!exitg4) && (j_i > 1L)) {
-                        b_i = MPC_B.iC[(int16_T)j_i - 1];
-                        g_i = MPC_B.iC[(int16_T)(j_i - 1L) - 1];
+                        b_i = iC[(int16_T)j_i - 1];
+                        g_i = iC[(int16_T)(j_i - 1L) - 1];
                         if (b_i > g_i) {
                           exitg4 = true;
                         } else {
-                          MPC_B.iC[(int16_T)j_i - 1] = g_i;
-                          MPC_B.iC[(int16_T)(j_i - 1L) - 1] = b_i;
+                          iC[(int16_T)j_i - 1] = g_i;
+                          iC[(int16_T)(j_i - 1L) - 1] = b_i;
                           j_i--;
                         }
                       }
 
-                      iA[tmp] = true;
-                      tmp = -1;
+                      iA[kNext] = true;
+                      kNext = -1;
                       *status = (int16_T)*status + 1;
                     }
                   } else {
@@ -1153,10 +1094,8 @@ static void MPC_qpkwik(const real32_T Linv[144], const real32_T Hinv[144], const
             cMin = MPC_norm(x);
             if (fabsf(cMin - Xnorm0) > 0.001F) {
               Xnorm0 = cMin;
-              for (i = 0; i < 24; i++) {
-                MPC_B.cTol[i] = 24.0F;
-              }
-
+              MPC_abs_i(RLinv);
+              MPC_maximum2(RLinv, cTol);
               cTolComputed = false;
             }
 
@@ -1176,36 +1115,20 @@ static void MPC_qpkwik(const real32_T Linv[144], const real32_T Hinv[144], const
 void MPC_step(void)
 {
   int32_T exitflag;
-  real32_T IdIq_ref[12];
-  real32_T Sh[12];
-  real32_T T[12];
-  real32_T a[12];
-  real32_T b[12];
-  real32_T A_d[4];
-  real32_T A_d_pow_i[4];
-  real32_T A_d_pow_i_0[4];
-  real32_T A_d_pow_i_tmp[4];
-  real32_T Su_tmp[4];
-  real32_T Su_tmp_0[4];
-  real32_T Su_tmp_1[4];
+  real32_T H_qp[4];
+  real32_T Linv[4];
+  real32_T Su[4];
+  real32_T T[4];
+  real32_T a[4];
+  real32_T g[4];
+  real32_T IdIq_ref[2];
   real32_T frac[2];
   real32_T frac_0[2];
+  real32_T rtb_Gain_0[2];
   real32_T tmp[2];
-  real32_T A_d_0;
-  real32_T A_d_1;
-  real32_T A_d_pow_i_1;
-  real32_T A_d_pow_i_tmp_0;
-  real32_T A_d_pow_j;
-  real32_T A_d_pow_j_0;
-  real32_T A_d_pow_j_1;
-  real32_T A_d_pow_j_2;
-  real32_T B_d_idx_0;
-  real32_T B_d_idx_2_tmp;
-  real32_T B_d_idx_3;
+  real32_T H_qp_0;
+  real32_T H_qp_1;
   real32_T e_wm;
-  real32_T rtb_DiscreteTimeIntegrator_idx_;
-  real32_T rtb_Gain_idx_0_tmp;
-  real32_T rtb_Gain_idx_1_tmp;
   real32_T rtb_PrelookupRPM_o2;
   real32_T rtb_PrelookupTe_o2;
   real32_T tmp_0;
@@ -1213,93 +1136,36 @@ void MPC_step(void)
   uint32_T bpIndex_0[2];
   uint32_T rtb_PrelookupRPM_o1;
   uint32_T rtb_PrelookupTe_o1;
-  int16_T A_d_tmp;
-  int16_T Su_tmp_2;
-  int16_T T_tmp;
-  int16_T T_tmp_0;
-  int16_T e;
+  int16_T c_k;
   int16_T i;
-  int16_T ia;
   int16_T idxAjj;
-  static const real32_T y[144] = { 0.1F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F,
-    0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.2F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F,
-    0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.1F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F,
-    0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.2F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F,
-    0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.1F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F,
-    0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.2F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F,
-    0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.1F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F,
-    0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.2F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F,
-    0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.1F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F,
-    0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.2F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F,
-    0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.1F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F,
-    0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.2F };
+  int16_T info;
+  static const int16_T b[2] = { 0, 1 };
 
-  static const real32_T b_y[144] = { 0.1F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F,
-    0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.1F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F,
-    0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.1F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F,
-    0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.1F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F,
-    0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.1F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F,
-    0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.1F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F,
-    0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.1F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F,
-    0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.1F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F,
-    0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.1F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F,
-    0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.1F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F,
-    0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.1F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F,
-    0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.1F };
+  static const real32_T g_0[4] = { 0.1F, 0.0F, 0.0F, 0.2F };
 
-  static const real32_T h[144] = { 1.0E-6F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F,
-    0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 1.0E-6F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F,
-    0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 1.0E-6F, 0.0F, 0.0F, 0.0F, 0.0F,
-    0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 1.0E-6F, 0.0F, 0.0F, 0.0F,
-    0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 1.0E-6F, 0.0F, 0.0F,
-    0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 1.0E-6F, 0.0F,
-    0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 1.0E-6F,
-    0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F,
-    1.0E-6F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F,
-    0.0F, 1.0E-6F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F,
-    0.0F, 0.0F, 1.0E-6F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F,
-    0.0F, 0.0F, 0.0F, 1.0E-6F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F,
-    0.0F, 0.0F, 0.0F, 0.0F, 1.0E-6F };
+  static const real32_T h[4] = { 0.01F, 0.0F, 0.0F, 0.01F };
 
-  static const int16_T B[144] = { 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 };
+  static const int16_T e[4] = { 1, 0, 0, 1 };
 
-  static const real32_T l[288] = { -1.0F, -0.0F, -0.0F, -0.0F, -0.0F, -0.0F,
-    -0.0F, -0.0F, -0.0F, -0.0F, -0.0F, -0.0F, 1.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F,
-    0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, -0.0F, -1.0F, -0.0F, -0.0F, -0.0F, -0.0F,
-    -0.0F, -0.0F, -0.0F, -0.0F, -0.0F, -0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 0.0F, 0.0F,
-    0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, -0.0F, -0.0F, -1.0F, -0.0F, -0.0F, -0.0F,
-    -0.0F, -0.0F, -0.0F, -0.0F, -0.0F, -0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 0.0F,
-    0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, -0.0F, -0.0F, -0.0F, -1.0F, -0.0F, -0.0F,
-    -0.0F, -0.0F, -0.0F, -0.0F, -0.0F, -0.0F, 0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F,
-    0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, -0.0F, -0.0F, -0.0F, -0.0F, -1.0F, -0.0F,
-    -0.0F, -0.0F, -0.0F, -0.0F, -0.0F, -0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 1.0F, 0.0F,
-    0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, -0.0F, -0.0F, -0.0F, -0.0F, -0.0F, -1.0F,
-    -0.0F, -0.0F, -0.0F, -0.0F, -0.0F, -0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 1.0F,
-    0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, -0.0F, -0.0F, -0.0F, -0.0F, -0.0F, -0.0F,
-    -1.0F, -0.0F, -0.0F, -0.0F, -0.0F, -0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F,
-    1.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, -0.0F, -0.0F, -0.0F, -0.0F, -0.0F, -0.0F,
-    -0.0F, -1.0F, -0.0F, -0.0F, -0.0F, -0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F,
-    0.0F, 1.0F, 0.0F, 0.0F, 0.0F, 0.0F, -0.0F, -0.0F, -0.0F, -0.0F, -0.0F, -0.0F,
-    -0.0F, -0.0F, -1.0F, -0.0F, -0.0F, -0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F,
-    0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 0.0F, -0.0F, -0.0F, -0.0F, -0.0F, -0.0F, -0.0F,
-    -0.0F, -0.0F, -0.0F, -1.0F, -0.0F, -0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F,
-    0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, -0.0F, -0.0F, -0.0F, -0.0F, -0.0F, -0.0F,
-    -0.0F, -0.0F, -0.0F, -0.0F, -1.0F, -0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F,
-    0.0F, 0.0F, 0.0F, 0.0F, 1.0F, 0.0F, -0.0F, -0.0F, -0.0F, -0.0F, -0.0F, -0.0F,
-    -0.0F, -0.0F, -0.0F, -0.0F, -0.0F, -1.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F,
-    0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 1.0F };
+  static const real32_T l[8] = { -1.0F, -0.0F, -0.0F, -1.0F, 1.0F, 0.0F, 0.0F,
+    1.0F };
 
   boolean_T exitg1;
 
   /* Outputs for Atomic SubSystem: '<Root>/MPC' */
+  /* MATLAB Function: '<S1>/Te calculation' incorporates:
+   *  Inport: '<Root>/Id_meas'
+   *  Inport: '<Root>/Iq_meas'
+   */
+  MPC_Y.Te_meas_out = (-0.00135187327F * MPC_U.Id_meas + 1.0F) * (0.194175F *
+    MPC_U.Iq_meas);
+
   /* Outputs for Atomic SubSystem: '<S1>/Subsystem' */
-  /* DiscreteIntegrator: '<S4>/Discrete-Time Integrator' */
-  rtb_DiscreteTimeIntegrator_idx_ = MPC_DW.DiscreteTimeIntegrator_DSTATE[1];
+  /* Sum: '<S1>/Sum1' incorporates:
+   *  DiscreteIntegrator: '<S4>/Discrete-Time Integrator'
+   */
+  MPC_Y.Tl_est_out = MPC_DW.DiscreteTimeIntegrator_DSTATE[1];
 
   /* MATLAB Function: '<S4>/MATLAB Function' incorporates:
    *  DiscreteIntegrator: '<S4>/Discrete-Time Integrator'
@@ -1317,33 +1183,51 @@ void MPC_step(void)
   tmp_0 = MPC_DW.DiscreteTimeIntegrator_DSTATE[0];
 
   /* Update for DiscreteIntegrator: '<S4>/Discrete-Time Integrator' incorporates:
-   *  Inport: '<Root>/Id_meas'
-   *  Inport: '<Root>/Iq_meas'
-   *  MATLAB Function: '<S1>/Te calculation'
    *  MATLAB Function: '<S4>/MATLAB Function'
    */
-  rtb_Gain_idx_0_tmp = MPC_DW.DiscreteTimeIntegrator_DSTATE[1];
-  MPC_DW.DiscreteTimeIntegrator_DSTATE[0] = ((((-0.00135187327F * MPC_U.Id_meas
-    + 1.0F) * (0.194175F * MPC_U.Iq_meas) - rtb_PrelookupRPM_o2) - MPC_P.B *
-    tmp_0) * (real32_T)(1.0 / MPC_P.J) + (2000.0F - MPC_P.B / (real32_T)MPC_P.J)
-    * e_wm) * MPC_P.DiscreteTimeIntegrator_gainval + rtb_PrelookupTe_o2;
-  MPC_DW.DiscreteTimeIntegrator_DSTATE[1] = (real32_T)-MPC_P.J * 1.0E+6F * e_wm *
-    MPC_P.DiscreteTimeIntegrator_gainval + rtb_Gain_idx_0_tmp;
+  H_qp_0 = MPC_DW.DiscreteTimeIntegrator_DSTATE[1];
+  MPC_DW.DiscreteTimeIntegrator_DSTATE[0] = (((MPC_Y.Te_meas_out -
+    rtb_PrelookupRPM_o2) - MPC_P.B * tmp_0) * (1.0F / MPC_P.J) + (2000.0F -
+    MPC_P.B / MPC_P.J) * e_wm) * MPC_P.DiscreteTimeIntegrator_gainval +
+    rtb_PrelookupTe_o2;
+  MPC_DW.DiscreteTimeIntegrator_DSTATE[1] = -MPC_P.J * 1.0E+6F * e_wm *
+    MPC_P.DiscreteTimeIntegrator_gainval + H_qp_0;
 
   /* End of Outputs for SubSystem: '<S1>/Subsystem' */
 
   /* Sum: '<S1>/Sum1' incorporates:
    *  Inport: '<Root>/Te_ref'
    */
-  rtb_DiscreteTimeIntegrator_idx_ += MPC_U.Te_ref;
+  rtb_PrelookupTe_o2 = MPC_U.Te_ref + MPC_Y.Tl_est_out;
 
   /* Outputs for Atomic SubSystem: '<S1>/Current reference generation' */
+  /* Saturate: '<S3>/Saturation1' */
+  if (rtb_PrelookupTe_o2 > MPC_P.Te_max) {
+    rtb_PrelookupTe_o2 = MPC_P.Te_max;
+  } else if (rtb_PrelookupTe_o2 < MPC_P.Te_min) {
+    rtb_PrelookupTe_o2 = MPC_P.Te_min;
+  }
+
+  /* End of Saturate: '<S3>/Saturation1' */
+
+  /* Signum: '<S3>/Sign' */
+  if (rtIsNaNF(rtb_PrelookupTe_o2)) {
+    e_wm = (rtNaNF);
+  } else if (rtb_PrelookupTe_o2 < 0.0F) {
+    e_wm = -1.0F;
+  } else {
+    e_wm = (rtb_PrelookupTe_o2 > 0.0F);
+  }
+
+  /* End of Signum: '<S3>/Sign' */
+
   /* Abs: '<S3>/Abs' */
-  rtb_PrelookupTe_o2 = fabsf(rtb_DiscreteTimeIntegrator_idx_);
+  rtb_PrelookupTe_o2 = fabsf(rtb_PrelookupTe_o2);
 
   /* PreLookup: '<S3>/Prelookup Te' */
-  rtb_PrelookupTe_o1 = plook_u32ff_binx(rtb_PrelookupTe_o2,
-    MPC_P.PrelookupTe_BreakpointsData, 11UL, &rtb_PrelookupTe_o2);
+  rtb_PrelookupTe_o1 = plook_u32ff_binxp(rtb_PrelookupTe_o2,
+    MPC_P.PrelookupTe_BreakpointsData, 12UL, &rtb_PrelookupTe_o2,
+    &MPC_DW.PrelookupTe_DWORK1);
 
   /* Abs: '<S3>/Abs1' incorporates:
    *  Gain: '<S1>/Gain1'
@@ -1361,633 +1245,259 @@ void MPC_step(void)
   /* End of Saturate: '<S3>/Saturation' */
 
   /* PreLookup: '<S3>/Prelookup RPM' */
-  rtb_PrelookupRPM_o1 = plook_u32ff_binx(rtb_PrelookupRPM_o2,
-    MPC_P.speed_rpm_vec, 19UL, &rtb_PrelookupRPM_o2);
-
-  /* Interpolation_n-D: '<S3>/Interpolation Using Prelookup' */
-  frac[0L] = rtb_PrelookupTe_o2;
-  frac[1L] = rtb_PrelookupRPM_o2;
-  bpIndex[0L] = rtb_PrelookupTe_o1;
-  bpIndex[1L] = rtb_PrelookupRPM_o1;
-  e_wm = intrp2d_fu32fl_pw(bpIndex, frac, MPC_P.LUT_Id, 12UL);
+  rtb_PrelookupRPM_o1 = plook_u32ff_binxp(rtb_PrelookupRPM_o2,
+    MPC_P.speed_rpm_vec, 20UL, &rtb_PrelookupRPM_o2, &MPC_DW.PrelookupRPM_DWORK1);
 
   /* Interpolation_n-D: '<S3>/Interpolation Using Prelookup1' */
-  frac_0[0L] = rtb_PrelookupTe_o2;
-  frac_0[1L] = rtb_PrelookupRPM_o2;
-  bpIndex_0[0L] = rtb_PrelookupTe_o1;
-  bpIndex_0[1L] = rtb_PrelookupRPM_o1;
-
-  /* Signum: '<S3>/Sign' */
-  if (rtIsNaNF(rtb_DiscreteTimeIntegrator_idx_)) {
-    rtb_PrelookupTe_o2 = (rtNaNF);
-  } else if (rtb_DiscreteTimeIntegrator_idx_ < 0.0F) {
-    rtb_PrelookupTe_o2 = -1.0F;
-  } else {
-    rtb_PrelookupTe_o2 = (rtb_DiscreteTimeIntegrator_idx_ > 0.0F);
+  frac[0L] = rtb_PrelookupTe_o2;
+  if (rtb_PrelookupTe_o2 < 0.0F) {
+    frac[0L] = 0.0F;
+  } else if (rtb_PrelookupTe_o2 > 1.0F) {
+    frac[0L] = 1.0F;
   }
 
-  /* Switch: '<S3>/Switch' incorporates:
-   *  Interpolation_n-D: '<S3>/Interpolation Using Prelookup1'
-   *  Signum: '<S3>/Sign'
-   *  UnaryMinus: '<S3>/Unary Minus'
-   */
-  if (rtb_PrelookupTe_o2 >= MPC_P.Switch_Threshold) {
-    rtb_PrelookupTe_o2 = intrp2d_fu32fl_pw(bpIndex_0, frac_0, MPC_P.LUT_Iq, 12UL);
+  frac[1L] = rtb_PrelookupRPM_o2;
+  if (rtb_PrelookupRPM_o2 < 0.0F) {
+    frac[1L] = 0.0F;
+  } else if (rtb_PrelookupRPM_o2 > 1.0F) {
+    frac[1L] = 1.0F;
+  }
+
+  bpIndex[0L] = rtb_PrelookupTe_o1;
+  bpIndex[1L] = rtb_PrelookupRPM_o1;
+
+  /* Switch: '<S3>/Switch' */
+  if (e_wm >= MPC_P.Switch_Threshold) {
+    /* Switch: '<S3>/Switch' incorporates:
+     *  Interpolation_n-D: '<S3>/Interpolation Using Prelookup1'
+     */
+    MPC_Y.iq_ref_cal_out = intrp2d_fu32flm_pw(bpIndex, frac, MPC_P.LUT_Iq,
+      MPC_P.InterpolationUsingPrelookup1_di);
   } else {
-    rtb_PrelookupTe_o2 = -intrp2d_fu32fl_pw(bpIndex_0, frac_0, MPC_P.LUT_Iq,
-      12UL);
+    /* Switch: '<S3>/Switch' incorporates:
+     *  Interpolation_n-D: '<S3>/Interpolation Using Prelookup1'
+     *  UnaryMinus: '<S3>/Unary Minus'
+     */
+    MPC_Y.iq_ref_cal_out = -intrp2d_fu32flm_pw(bpIndex, frac, MPC_P.LUT_Iq,
+      MPC_P.InterpolationUsingPrelookup1_di);
   }
 
   /* End of Switch: '<S3>/Switch' */
+
+  /* Interpolation_n-D: '<S3>/Interpolation Using Prelookup' */
+  frac_0[0L] = rtb_PrelookupTe_o2;
+  if (rtb_PrelookupTe_o2 < 0.0F) {
+    frac_0[0L] = 0.0F;
+  } else if (rtb_PrelookupTe_o2 > 1.0F) {
+    frac_0[0L] = 1.0F;
+  }
+
+  frac_0[1L] = rtb_PrelookupRPM_o2;
+  if (rtb_PrelookupRPM_o2 < 0.0F) {
+    frac_0[1L] = 0.0F;
+  } else if (rtb_PrelookupRPM_o2 > 1.0F) {
+    frac_0[1L] = 1.0F;
+  }
+
+  bpIndex_0[0L] = rtb_PrelookupTe_o1;
+  bpIndex_0[1L] = rtb_PrelookupRPM_o1;
+
+  /* Interpolation_n-D: '<S3>/Interpolation Using Prelookup' */
+  MPC_Y.id_ref_cal_out = intrp2d_fu32flm_pw(bpIndex_0, frac_0, MPC_P.LUT_Id,
+    MPC_P.InterpolationUsingPrelookup_dim);
+
   /* End of Outputs for SubSystem: '<S1>/Current reference generation' */
 
   /* Gain: '<S1>/Gain' incorporates:
    *  Inport: '<Root>/wm'
    */
-  rtb_DiscreteTimeIntegrator_idx_ = MPC_P.p * MPC_U.wm;
+  rtb_PrelookupTe_o2 = MPC_P.p * MPC_U.wm;
 
-  /* Outputs for Atomic SubSystem: '<S1>/Current controller' */
-  /* MATLAB Function: '<S2>/MPC' */
-  rtb_PrelookupRPM_o2 = -MPC_P.Rs / MPC_P.Ld * MPC_P.Tsw;
-  tmp_0 = rtb_DiscreteTimeIntegrator_idx_ * MPC_P.Lq / MPC_P.Ld * MPC_P.Tsw;
-  rtb_Gain_idx_0_tmp = -rtb_DiscreteTimeIntegrator_idx_ * MPC_P.Ld / MPC_P.Lq *
-    MPC_P.Tsw;
-  rtb_Gain_idx_1_tmp = -MPC_P.Rs / MPC_P.Lq * MPC_P.Tsw;
-  A_d[0] = rtb_PrelookupRPM_o2 + 1.0F;
-  A_d[1] = rtb_Gain_idx_0_tmp;
-  A_d[2] = tmp_0;
-  A_d[3] = rtb_Gain_idx_1_tmp + 1.0F;
-  B_d_idx_0 = 1.0F / MPC_P.Ld * MPC_P.Tsw;
-  B_d_idx_2_tmp = 0.0F * MPC_P.Tsw;
-  B_d_idx_3 = 1.0F / MPC_P.Lq * MPC_P.Tsw;
-  rtb_DiscreteTimeIntegrator_idx_ = -rtb_DiscreteTimeIntegrator_idx_ *
-    MPC_P.psi_m / MPC_P.Lq * MPC_P.Tsw;
-  for (i = 0; i < 24; i++) {
-    MPC_B.a[i] = 0.0F;
-  }
-
-  memset(&MPC_B.Su[0], 0, 144U * sizeof(real32_T));
-  for (i = 0; i < 12; i++) {
-    Sh[i] = 0.0F;
-  }
-
-  A_d_pow_i[0] = 1.0F;
-  A_d_pow_i[1] = 0.0F;
-  A_d_pow_i[2] = 0.0F;
-  A_d_pow_i[3] = 1.0F;
-  for (i = 0; i < 2; i++) {
-    A_d_tmp = i << 1U;
-    A_d_0 = A_d[A_d_tmp + 1];
-    A_d_1 = A_d[A_d_tmp];
-    A_d_pow_i_tmp_0 = A_d_0 * 0.0F + A_d_1;
-    A_d_pow_i_tmp[A_d_tmp] = A_d_pow_i_tmp_0;
-    A_d_0 += A_d_1 * 0.0F;
-    A_d_pow_i_tmp[A_d_tmp + 1] = A_d_0;
-    MPC_B.a[12 * i] = A_d_pow_i_tmp_0;
-    A_d_pow_i_1 = A_d_pow_i[i];
-    A_d_pow_i_tmp_0 = A_d_pow_i_1 * B_d_idx_2_tmp;
-    A_d_1 = A_d_pow_i[i + 2];
-    Su_tmp[i] = A_d_1 * B_d_idx_2_tmp + A_d_pow_i_1 * B_d_idx_0;
-    MPC_B.a[12 * i + 1] = A_d_0;
-    A_d_0 = A_d_1 * rtb_DiscreteTimeIntegrator_idx_ + A_d_pow_i_tmp_0;
-    frac[i] = A_d_0;
-    Su_tmp[i + 2] = A_d_1 * B_d_idx_3 + A_d_pow_i_tmp_0;
-    Sh[i] = A_d_0;
-  }
-
-  MPC_B.Su[26] = Su_tmp[0];
-  MPC_B.Su[27] = Su_tmp[1];
-  Sh[2] = (A_d_pow_i_tmp[0] * B_d_idx_2_tmp + A_d_pow_i_tmp[2] *
-           rtb_DiscreteTimeIntegrator_idx_) + frac[0];
-  MPC_B.Su[38] = Su_tmp[2];
-  MPC_B.Su[39] = Su_tmp[3];
-  Sh[3] = (A_d_pow_i_tmp[1] * B_d_idx_2_tmp + A_d_pow_i_tmp[3] *
-           rtb_DiscreteTimeIntegrator_idx_) + frac[1];
-  for (i = 0; i < 2; i++) {
-    A_d_tmp = i << 1U;
-    MPC_B.Su[12 * i] = Su_tmp[A_d_tmp];
-    A_d_pow_i_tmp_0 = A_d_pow_i_tmp[i + 2];
-    A_d_0 = A_d_pow_i_tmp[i];
-    A_d_pow_i_1 = (rtb_PrelookupRPM_o2 + 1.0F) * A_d_0 + A_d_pow_i_tmp_0 *
-      rtb_Gain_idx_0_tmp;
-    A_d_pow_i[i] = A_d_pow_i_1;
-    MPC_B.Su[12 * i + 1] = Su_tmp[A_d_tmp + 1];
-    A_d_1 = (rtb_Gain_idx_1_tmp + 1.0F) * A_d_pow_i_tmp_0 + A_d_0 * tmp_0;
-    A_d_pow_i[i + 2] = A_d_1;
-    A_d_pow_i_0[i] = (rtb_PrelookupRPM_o2 + 1.0F) * A_d_pow_i_1 + A_d_1 *
-      rtb_Gain_idx_0_tmp;
-    MPC_B.Su[i + 2] = A_d_pow_i_tmp_0 * B_d_idx_2_tmp + A_d_0 * B_d_idx_0;
-    A_d_pow_i_0[i + 2] = (rtb_Gain_idx_1_tmp + 1.0F) * A_d_1 + A_d_pow_i_1 *
-      tmp_0;
-    MPC_B.Su[i + 14] = A_d_pow_i_tmp_0 * B_d_idx_3 + A_d_0 * B_d_idx_2_tmp;
-  }
-
-  MPC_B.a[2] = A_d_pow_i[0];
-  MPC_B.a[3] = A_d_pow_i[1];
-  MPC_B.a[14] = A_d_pow_i[2];
-  MPC_B.a[15] = A_d_pow_i[3];
-  A_d_pow_i[0] = A_d_pow_i_0[0];
-  A_d_pow_i[1] = A_d_pow_i_0[1];
-  A_d_pow_i[2] = A_d_pow_i_0[2];
-  A_d_pow_i[3] = A_d_pow_i_0[3];
-  for (i = 0; i < 2; i++) {
-    idxAjj = i << 1U;
-    MPC_B.a[12 * i + 4] = A_d_pow_i[idxAjj];
-    A_d_pow_i_tmp_0 = A_d_pow_i_tmp[i];
-    A_d_1 = A_d_pow_i_tmp_0 * B_d_idx_2_tmp;
-    A_d_tmp = (i + 4) * 12;
-    MPC_B.Su[A_d_tmp + 4] = Su_tmp[idxAjj];
-    A_d_0 = A_d_pow_i_tmp[i + 2];
-    A_d_pow_j = (rtb_PrelookupRPM_o2 + 1.0F) * A_d_pow_i_tmp_0 + A_d_0 *
-      rtb_Gain_idx_0_tmp;
-    Su_tmp_0[i] = A_d_0 * B_d_idx_2_tmp + A_d_pow_i_tmp_0 * B_d_idx_0;
-    A_d[i] = A_d_pow_j;
-    MPC_B.a[12 * i + 5] = A_d_pow_i[idxAjj + 1];
-    A_d_pow_i_1 = A_d_0 * rtb_DiscreteTimeIntegrator_idx_ + A_d_1;
-    tmp[i] = A_d_pow_i_1;
-    MPC_B.Su[A_d_tmp + 5] = Su_tmp[idxAjj + 1];
-    A_d_pow_j_0 = (rtb_Gain_idx_1_tmp + 1.0F) * A_d_0 + A_d_pow_i_tmp_0 * tmp_0;
-    Su_tmp_0[i + 2] = A_d_0 * B_d_idx_3 + A_d_1;
-    A_d[i + 2] = A_d_pow_j_0;
-    Sh[i + 4] = (A_d_pow_j * B_d_idx_2_tmp + A_d_pow_j_0 *
-                 rtb_DiscreteTimeIntegrator_idx_) + (frac[i] + A_d_pow_i_1);
-  }
-
-  for (i = 0; i < 2; i++) {
-    A_d_tmp = i << 1U;
-    Su_tmp_2 = (i + 2) * 12;
-    MPC_B.Su[Su_tmp_2 + 4] = Su_tmp_0[A_d_tmp];
-    A_d_pow_i_tmp_0 = A_d_pow_i_tmp[i + 2];
-    A_d_0 = A_d_pow_i_tmp[i];
-    A_d_pow_j = (rtb_PrelookupRPM_o2 + 1.0F) * A_d_0 + A_d_pow_i_tmp_0 *
-      rtb_Gain_idx_0_tmp;
-    Su_tmp_1[i] = A_d_pow_j;
-    MPC_B.Su[Su_tmp_2 + 5] = Su_tmp_0[A_d_tmp + 1];
-    A_d_pow_i_tmp_0 = (rtb_Gain_idx_1_tmp + 1.0F) * A_d_pow_i_tmp_0 + A_d_0 *
-      tmp_0;
-    Su_tmp_1[i + 2] = A_d_pow_i_tmp_0;
-    A_d_pow_i_1 = A_d_pow_i[i + 2];
-    A_d_1 = A_d_pow_i[i];
-    A_d_pow_i_0[i] = (rtb_PrelookupRPM_o2 + 1.0F) * A_d_1 + A_d_pow_i_1 *
-      rtb_Gain_idx_0_tmp;
-    MPC_B.Su[i + 4] = A_d_pow_i_tmp_0 * B_d_idx_2_tmp + A_d_pow_j * B_d_idx_0;
-    A_d_pow_i_0[i + 2] = (rtb_Gain_idx_1_tmp + 1.0F) * A_d_pow_i_1 + A_d_1 *
-      tmp_0;
-    MPC_B.Su[i + 16] = A_d_pow_i_tmp_0 * B_d_idx_3 + A_d_pow_j * B_d_idx_2_tmp;
-  }
-
-  A_d_pow_i[0] = A_d_pow_i_0[0];
-  A_d_pow_i[1] = A_d_pow_i_0[1];
-  A_d_pow_i[2] = A_d_pow_i_0[2];
-  A_d_pow_i[3] = A_d_pow_i_0[3];
-  for (i = 0; i < 2; i++) {
-    idxAjj = i << 1U;
-    MPC_B.a[12 * i + 6] = A_d_pow_i[idxAjj];
-    A_d_pow_j = A_d[i + 2];
-    A_d_pow_j_0 = A_d[i];
-    A_d_tmp = (i + 6) * 12;
-    MPC_B.Su[A_d_tmp + 6] = Su_tmp[idxAjj];
-    Su_tmp_2 = (i + 4) * 12;
-    MPC_B.Su[Su_tmp_2 + 6] = Su_tmp_0[idxAjj];
-    MPC_B.a[12 * i + 7] = A_d_pow_i[idxAjj + 1];
-    MPC_B.Su[A_d_tmp + 7] = Su_tmp[idxAjj + 1];
-    MPC_B.Su[Su_tmp_2 + 7] = Su_tmp_0[idxAjj + 1];
-    Sh[i + 6] = (((rtb_Gain_idx_1_tmp + 1.0F) * A_d_pow_j + A_d_pow_j_0 * tmp_0)
-                 * rtb_DiscreteTimeIntegrator_idx_ + ((rtb_PrelookupRPM_o2 +
-      1.0F) * A_d_pow_j_0 + A_d_pow_j * rtb_Gain_idx_0_tmp) * B_d_idx_2_tmp) +
-      ((A_d_pow_j * rtb_DiscreteTimeIntegrator_idx_ + A_d_pow_j_0 *
-        B_d_idx_2_tmp) + (frac[i] + tmp[i]));
-    A_d_pow_j = Su_tmp_1[i];
-    A_d_pow_i_tmp_0 = Su_tmp_1[i + 2];
-    A_d_0 = (rtb_PrelookupRPM_o2 + 1.0F) * A_d_pow_j + A_d_pow_i_tmp_0 *
-      rtb_Gain_idx_0_tmp;
-    MPC_B.Su[i + 30] = A_d_pow_i_tmp_0 * B_d_idx_2_tmp + A_d_pow_j * B_d_idx_0;
-    A_d_1 = (rtb_Gain_idx_1_tmp + 1.0F) * A_d_pow_i_tmp_0 + A_d_pow_j * tmp_0;
-    MPC_B.Su[i + 42] = A_d_pow_i_tmp_0 * B_d_idx_3 + A_d_pow_j * B_d_idx_2_tmp;
-    A_d_pow_i_tmp_0 = A_d_pow_i[i + 2];
-    A_d_pow_i_0[i] = (rtb_PrelookupRPM_o2 + 1.0F) * A_d_pow_i[i] +
-      A_d_pow_i_tmp_0 * rtb_Gain_idx_0_tmp;
-    MPC_B.Su[i + 6] = A_d_1 * B_d_idx_2_tmp + A_d_0 * B_d_idx_0;
-    A_d_pow_i_0[i + 2] = (rtb_Gain_idx_1_tmp + 1.0F) * A_d_pow_i_tmp_0 +
-      A_d_pow_i[i] * tmp_0;
-    MPC_B.Su[i + 18] = A_d_1 * B_d_idx_3 + A_d_0 * B_d_idx_2_tmp;
-  }
-
-  A_d_pow_i[0] = A_d_pow_i_0[0];
-  A_d_pow_i[1] = A_d_pow_i_0[1];
-  A_d_pow_i[2] = A_d_pow_i_0[2];
-  A_d_pow_i[3] = A_d_pow_i_0[3];
-  for (i = 0; i < 2; i++) {
-    idxAjj = i << 1U;
-    MPC_B.a[12 * i + 8] = A_d_pow_i[idxAjj];
-    A_d_pow_i_tmp_0 = A_d_pow_i_tmp[i + 2];
-    A_d_0 = A_d_pow_i_tmp[i];
-    A_d_pow_j = (rtb_PrelookupRPM_o2 + 1.0F) * A_d_0 + A_d_pow_i_tmp_0 *
-      rtb_Gain_idx_0_tmp;
-    MPC_B.a[12 * i + 9] = A_d_pow_i[idxAjj + 1];
-    A_d_pow_j_0 = (rtb_Gain_idx_1_tmp + 1.0F) * A_d_pow_i_tmp_0 + A_d_0 * tmp_0;
-    frac_0[i] = ((A_d_pow_i_tmp_0 * rtb_DiscreteTimeIntegrator_idx_ + A_d_0 *
-                  B_d_idx_2_tmp) + frac[i]) + (A_d_pow_j_0 *
-      rtb_DiscreteTimeIntegrator_idx_ + A_d_pow_j * B_d_idx_2_tmp);
-    A_d_pow_i_0[i] = (rtb_PrelookupRPM_o2 + 1.0F) * A_d_pow_j + A_d_pow_j_0 *
-      rtb_Gain_idx_0_tmp;
-    A_d_pow_i_0[i + 2] = (rtb_Gain_idx_1_tmp + 1.0F) * A_d_pow_j_0 + A_d_pow_j *
-      tmp_0;
-  }
-
-  A_d[0] = A_d_pow_i_0[0];
-  A_d[1] = A_d_pow_i_0[1];
-  A_d[2] = A_d_pow_i_0[2];
-  A_d[3] = A_d_pow_i_0[3];
-  for (i = 0; i < 2; i++) {
-    A_d_pow_j = A_d[i + 2];
-    A_d_pow_j_0 = A_d[i];
-    A_d_tmp = i << 1U;
-    Su_tmp_2 = (i + 8) * 12;
-    MPC_B.Su[Su_tmp_2 + 8] = Su_tmp[A_d_tmp];
-    MPC_B.Su[Su_tmp_2 + 9] = Su_tmp[A_d_tmp + 1];
-    Sh[i + 8] = (((rtb_Gain_idx_1_tmp + 1.0F) * A_d_pow_j + A_d_pow_j_0 * tmp_0)
-                 * rtb_DiscreteTimeIntegrator_idx_ + ((rtb_PrelookupRPM_o2 +
-      1.0F) * A_d_pow_j_0 + A_d_pow_j * rtb_Gain_idx_0_tmp) * B_d_idx_2_tmp) +
-      ((A_d_pow_j * rtb_DiscreteTimeIntegrator_idx_ + A_d_pow_j_0 *
-        B_d_idx_2_tmp) + frac_0[i]);
-    A_d_pow_i_tmp_0 = A_d_pow_i_tmp[i];
-    A_d_0 = A_d_pow_i_tmp[i + 2];
-    A_d_pow_j_0 = (rtb_PrelookupRPM_o2 + 1.0F) * A_d_pow_i_tmp_0 + A_d_0 *
-      rtb_Gain_idx_0_tmp;
-    A_d[i] = A_d_pow_j_0;
-    MPC_B.Su[i + 80] = A_d_0 * B_d_idx_2_tmp + A_d_pow_i_tmp_0 * B_d_idx_0;
-    A_d_pow_j = (rtb_Gain_idx_1_tmp + 1.0F) * A_d_0 + A_d_pow_i_tmp_0 * tmp_0;
-    A_d[i + 2] = A_d_pow_j;
-    MPC_B.Su[i + 92] = A_d_0 * B_d_idx_3 + A_d_pow_i_tmp_0 * B_d_idx_2_tmp;
-    A_d_pow_i_0[i] = (rtb_PrelookupRPM_o2 + 1.0F) * A_d_pow_j_0 + A_d_pow_j *
-      rtb_Gain_idx_0_tmp;
-    MPC_B.Su[i + 56] = A_d_pow_j * B_d_idx_2_tmp + A_d_pow_j_0 * B_d_idx_0;
-    A_d_pow_i_0[i + 2] = (rtb_Gain_idx_1_tmp + 1.0F) * A_d_pow_j + A_d_pow_j_0 *
-      tmp_0;
-    MPC_B.Su[i + 68] = A_d_pow_j * B_d_idx_3 + A_d_pow_j_0 * B_d_idx_2_tmp;
-  }
-
-  A_d[0] = A_d_pow_i_0[0];
-  A_d[1] = A_d_pow_i_0[1];
-  A_d[2] = A_d_pow_i_0[2];
-  A_d[3] = A_d_pow_i_0[3];
-  for (i = 0; i < 2; i++) {
-    A_d_pow_j = A_d[i];
-    A_d_pow_j_0 = A_d[i + 2];
-    A_d_pow_j_1 = (rtb_PrelookupRPM_o2 + 1.0F) * A_d_pow_j + A_d_pow_j_0 *
-      rtb_Gain_idx_0_tmp;
-    MPC_B.Su[i + 32] = A_d_pow_j_0 * B_d_idx_2_tmp + A_d_pow_j * B_d_idx_0;
-    A_d_pow_j_2 = (rtb_Gain_idx_1_tmp + 1.0F) * A_d_pow_j_0 + A_d_pow_j * tmp_0;
-    MPC_B.Su[i + 44] = A_d_pow_j_0 * B_d_idx_3 + A_d_pow_j * B_d_idx_2_tmp;
-    A_d_pow_i_tmp_0 = A_d_pow_i_tmp[i + 2];
-    A_d_0 = A_d_pow_i_tmp[i];
-    A_d_pow_j = (rtb_PrelookupRPM_o2 + 1.0F) * A_d_0 + A_d_pow_i_tmp_0 *
-      rtb_Gain_idx_0_tmp;
-    A_d[i] = A_d_pow_j;
-    A_d_pow_i_1 = A_d_pow_i[i + 2];
-    A_d_1 = A_d_pow_i[i];
-    MPC_B.a[i + 10] = (rtb_PrelookupRPM_o2 + 1.0F) * A_d_1 + A_d_pow_i_1 *
-      rtb_Gain_idx_0_tmp;
-    MPC_B.Su[i + 8] = A_d_pow_j_2 * B_d_idx_2_tmp + A_d_pow_j_1 * B_d_idx_0;
-    A_d_pow_j_0 = (rtb_Gain_idx_1_tmp + 1.0F) * A_d_pow_i_tmp_0 + A_d_0 * tmp_0;
-    A_d[i + 2] = A_d_pow_j_0;
-    MPC_B.a[i + 22] = (rtb_Gain_idx_1_tmp + 1.0F) * A_d_pow_i_1 + A_d_1 * tmp_0;
-    MPC_B.Su[i + 20] = A_d_pow_j_2 * B_d_idx_3 + A_d_pow_j_1 * B_d_idx_2_tmp;
-    frac_0[i] = ((A_d_pow_i_tmp_0 * rtb_DiscreteTimeIntegrator_idx_ + A_d_0 *
-                  B_d_idx_2_tmp) + frac[i]) + (A_d_pow_j_0 *
-      rtb_DiscreteTimeIntegrator_idx_ + A_d_pow_j * B_d_idx_2_tmp);
-    A_d_pow_i_0[i] = (rtb_PrelookupRPM_o2 + 1.0F) * A_d_pow_j + A_d_pow_j_0 *
-      rtb_Gain_idx_0_tmp;
-    A_d_pow_i_0[i + 2] = (rtb_Gain_idx_1_tmp + 1.0F) * A_d_pow_j_0 + A_d_pow_j *
-      tmp_0;
-  }
-
-  A_d[0] = A_d_pow_i_0[0];
-  A_d[1] = A_d_pow_i_0[1];
-  A_d[2] = A_d_pow_i_0[2];
-  A_d[3] = A_d_pow_i_0[3];
-  for (i = 0; i < 2; i++) {
-    A_d_pow_j = A_d[i + 2];
-    A_d_pow_j_0 = A_d[i];
-    A_d_pow_i_0[i] = (rtb_PrelookupRPM_o2 + 1.0F) * A_d_pow_j_0 + A_d_pow_j *
-      rtb_Gain_idx_0_tmp;
-    A_d_pow_i_0[i + 2] = (rtb_Gain_idx_1_tmp + 1.0F) * A_d_pow_j + A_d_pow_j_0 *
-      tmp_0;
-    tmp[i] = (A_d_pow_j * rtb_DiscreteTimeIntegrator_idx_ + A_d_pow_j_0 *
-              B_d_idx_2_tmp) + frac_0[i];
-  }
-
-  A_d[0] = A_d_pow_i_0[0];
-  A_d[1] = A_d_pow_i_0[1];
-  A_d[2] = A_d_pow_i_0[2];
-  A_d[3] = A_d_pow_i_0[3];
-  for (i = 0; i < 2; i++) {
-    A_d_pow_j = A_d[i + 2];
-    A_d_pow_j_0 = A_d[i];
-    A_d_tmp = i << 1U;
-    Su_tmp_2 = (i + 10) * 12;
-    MPC_B.Su[Su_tmp_2 + 10] = Su_tmp[A_d_tmp];
-    MPC_B.Su[Su_tmp_2 + 11] = Su_tmp[A_d_tmp + 1];
-    Sh[i + 10] = (((rtb_Gain_idx_1_tmp + 1.0F) * A_d_pow_j + A_d_pow_j_0 * tmp_0)
-                  * rtb_DiscreteTimeIntegrator_idx_ + ((rtb_PrelookupRPM_o2 +
-      1.0F) * A_d_pow_j_0 + A_d_pow_j * rtb_Gain_idx_0_tmp) * B_d_idx_2_tmp) +
-      ((A_d_pow_j * rtb_DiscreteTimeIntegrator_idx_ + A_d_pow_j_0 *
-        B_d_idx_2_tmp) + tmp[i]);
-    A_d_pow_i_tmp_0 = A_d_pow_i_tmp[i];
-    A_d_0 = A_d_pow_i_tmp[i + 2];
-    A_d_pow_j_0 = (rtb_PrelookupRPM_o2 + 1.0F) * A_d_pow_i_tmp_0 + A_d_0 *
-      rtb_Gain_idx_0_tmp;
-    A_d[i] = A_d_pow_j_0;
-    MPC_B.Su[i + 106] = A_d_0 * B_d_idx_2_tmp + A_d_pow_i_tmp_0 * B_d_idx_0;
-    A_d_pow_j = (rtb_Gain_idx_1_tmp + 1.0F) * A_d_0 + A_d_pow_i_tmp_0 * tmp_0;
-    A_d[i + 2] = A_d_pow_j;
-    MPC_B.Su[i + 118] = A_d_0 * B_d_idx_3 + A_d_pow_i_tmp_0 * B_d_idx_2_tmp;
-    A_d_pow_i_0[i] = (rtb_PrelookupRPM_o2 + 1.0F) * A_d_pow_j_0 + A_d_pow_j *
-      rtb_Gain_idx_0_tmp;
-    MPC_B.Su[i + 82] = A_d_pow_j * B_d_idx_2_tmp + A_d_pow_j_0 * B_d_idx_0;
-    A_d_pow_i_0[i + 2] = (rtb_Gain_idx_1_tmp + 1.0F) * A_d_pow_j + A_d_pow_j_0 *
-      tmp_0;
-    MPC_B.Su[i + 94] = A_d_pow_j * B_d_idx_3 + A_d_pow_j_0 * B_d_idx_2_tmp;
-  }
-
-  A_d[0] = A_d_pow_i_0[0];
-  A_d[1] = A_d_pow_i_0[1];
-  A_d[2] = A_d_pow_i_0[2];
-  A_d[3] = A_d_pow_i_0[3];
-  for (i = 0; i < 2; i++) {
-    A_d_pow_j = A_d[i];
-    A_d_pow_j_0 = A_d[i + 2];
-    A_d_pow_i_0[i] = (rtb_PrelookupRPM_o2 + 1.0F) * A_d_pow_j + A_d_pow_j_0 *
-      rtb_Gain_idx_0_tmp;
-    MPC_B.Su[i + 58] = A_d_pow_j_0 * B_d_idx_2_tmp + A_d_pow_j * B_d_idx_0;
-    A_d_pow_i_0[i + 2] = (rtb_Gain_idx_1_tmp + 1.0F) * A_d_pow_j_0 + A_d_pow_j *
-      tmp_0;
-    MPC_B.Su[i + 70] = A_d_pow_j_0 * B_d_idx_3 + A_d_pow_j * B_d_idx_2_tmp;
-  }
-
-  A_d[0] = A_d_pow_i_0[0];
-  A_d[1] = A_d_pow_i_0[1];
-  A_d[2] = A_d_pow_i_0[2];
-  A_d[3] = A_d_pow_i_0[3];
-  for (i = 0; i < 2; i++) {
-    A_d_pow_j = A_d[i];
-    A_d_pow_j_0 = A_d[i + 2];
-    A_d_pow_j_1 = (rtb_PrelookupRPM_o2 + 1.0F) * A_d_pow_j + A_d_pow_j_0 *
-      rtb_Gain_idx_0_tmp;
-    MPC_B.Su[i + 34] = A_d_pow_j_0 * B_d_idx_2_tmp + A_d_pow_j * B_d_idx_0;
-    A_d_pow_j_2 = (rtb_Gain_idx_1_tmp + 1.0F) * A_d_pow_j_0 + A_d_pow_j * tmp_0;
-    MPC_B.Su[i + 46] = A_d_pow_j_0 * B_d_idx_3 + A_d_pow_j * B_d_idx_2_tmp;
-    MPC_B.Su[i + 10] = A_d_pow_j_2 * B_d_idx_2_tmp + A_d_pow_j_1 * B_d_idx_0;
-    MPC_B.Su[i + 22] = A_d_pow_j_2 * B_d_idx_3 + A_d_pow_j_1 * B_d_idx_2_tmp;
-  }
-
-  for (i = 0; i < 6; i++) {
-    A_d_tmp = (i + 1) << 1U;
-    IdIq_ref[A_d_tmp - 2] = e_wm;
-    IdIq_ref[A_d_tmp - 1] = rtb_PrelookupTe_o2;
-  }
-
-  memset(&MPC_B.T[0], 0, 144U * sizeof(int16_T));
-  MPC_B.T[0] = 1;
-  MPC_B.T[2] = -1;
-  MPC_B.T[26] = 1;
-  MPC_B.T[28] = -1;
-  MPC_B.T[52] = 1;
-  MPC_B.T[54] = -1;
-  MPC_B.T[78] = 1;
-  MPC_B.T[80] = -1;
-  MPC_B.T[104] = 1;
-  MPC_B.T[106] = -1;
-  MPC_B.T[130] = 1;
-  MPC_B.T[1] = 0;
-  MPC_B.T[3] = 0;
-  MPC_B.T[27] = 0;
-  MPC_B.T[29] = 0;
-  MPC_B.T[53] = 0;
-  MPC_B.T[55] = 0;
-  MPC_B.T[79] = 0;
-  MPC_B.T[81] = 0;
-  MPC_B.T[105] = 0;
-  MPC_B.T[107] = 0;
-  MPC_B.T[131] = 0;
-  MPC_B.T[12] = 0;
-  MPC_B.T[14] = 0;
-  MPC_B.T[38] = 0;
-  MPC_B.T[40] = 0;
-  MPC_B.T[64] = 0;
-  MPC_B.T[66] = 0;
-  MPC_B.T[90] = 0;
-  MPC_B.T[92] = 0;
-  MPC_B.T[116] = 0;
-  MPC_B.T[118] = 0;
-  MPC_B.T[142] = 0;
-  MPC_B.T[13] = 1;
-  MPC_B.T[15] = -1;
-  MPC_B.T[39] = 1;
-  MPC_B.T[41] = -1;
-  MPC_B.T[65] = 1;
-  MPC_B.T[67] = -1;
-  MPC_B.T[91] = 1;
-  MPC_B.T[93] = -1;
-  MPC_B.T[117] = 1;
-  MPC_B.T[119] = -1;
-  MPC_B.T[143] = 1;
-  for (i = 0; i < 12; i++) {
-    b[i] = 0.0F;
-  }
-
-  b[0] = MPC_DW.UnitDelay_DSTATE[0];
-  b[1] = MPC_DW.UnitDelay_DSTATE[1];
-  for (i = 0; i < 144; i++) {
-    MPC_B.H_qp_tmp[i] = MPC_B.T[i];
-  }
-
-  for (i = 0; i < 12; i++) {
-    for (idxAjj = 0; idxAjj < 12; idxAjj++) {
-      rtb_DiscreteTimeIntegrator_idx_ = 0.0F;
-      for (Su_tmp_2 = 0; Su_tmp_2 < 12; Su_tmp_2++) {
-        rtb_DiscreteTimeIntegrator_idx_ += MPC_B.Su[12 * i + Su_tmp_2] * y[12 *
-          idxAjj + Su_tmp_2];
-      }
-
-      MPC_B.Su_m[i + 12 * idxAjj] = rtb_DiscreteTimeIntegrator_idx_;
-    }
-
-    for (idxAjj = 0; idxAjj < 12; idxAjj++) {
-      rtb_DiscreteTimeIntegrator_idx_ = 0.0F;
-      for (Su_tmp_2 = 0; Su_tmp_2 < 12; Su_tmp_2++) {
-        rtb_DiscreteTimeIntegrator_idx_ += MPC_B.Su_m[12 * Su_tmp_2 + i] *
-          MPC_B.Su[12 * idxAjj + Su_tmp_2];
-      }
-
-      MPC_B.Su_c[i + 12 * idxAjj] = rtb_DiscreteTimeIntegrator_idx_;
-    }
-  }
-
-  for (i = 0; i < 12; i++) {
-    for (idxAjj = 0; idxAjj < 12; idxAjj++) {
-      rtb_DiscreteTimeIntegrator_idx_ = 0.0F;
-      for (Su_tmp_2 = 0; Su_tmp_2 < 12; Su_tmp_2++) {
-        rtb_DiscreteTimeIntegrator_idx_ += MPC_B.H_qp_tmp[12 * i + Su_tmp_2] *
-          b_y[12 * idxAjj + Su_tmp_2];
-      }
-
-      MPC_B.H_qp[i + 12 * idxAjj] = rtb_DiscreteTimeIntegrator_idx_;
-    }
-
-    for (idxAjj = 0; idxAjj < 12; idxAjj++) {
-      rtb_DiscreteTimeIntegrator_idx_ = 0.0F;
-      for (Su_tmp_2 = 0; Su_tmp_2 < 12; Su_tmp_2++) {
-        rtb_DiscreteTimeIntegrator_idx_ += MPC_B.H_qp[12 * Su_tmp_2 + i] *
-          MPC_B.H_qp_tmp[12 * idxAjj + Su_tmp_2];
-      }
-
-      MPC_B.Su_m[i + 12 * idxAjj] = rtb_DiscreteTimeIntegrator_idx_;
-    }
-  }
-
-  for (i = 0; i < 144; i++) {
-    MPC_B.H_qp[i] = 2.0F * MPC_B.Su_c[i] + 2.0F * MPC_B.Su_m[i];
-  }
-
-  for (i = 0; i < 12; i++) {
-    for (idxAjj = 0; idxAjj < 12; idxAjj++) {
-      Su_tmp_2 = 12 * i + idxAjj;
-      MPC_B.H_qp_tmp[Su_tmp_2] = (MPC_B.H_qp[12 * idxAjj + i] +
-        MPC_B.H_qp[Su_tmp_2]) / 2.0F + h[Su_tmp_2];
-    }
-  }
-
-  i = 0;
-  A_d_tmp = 0;
-  exitg1 = false;
-  while ((!exitg1) && (A_d_tmp < 12)) {
-    idxAjj = A_d_tmp * 12 + A_d_tmp;
-    rtb_DiscreteTimeIntegrator_idx_ = 0.0F;
-    if (A_d_tmp >= 1) {
-      for (Su_tmp_2 = 0; Su_tmp_2 < A_d_tmp; Su_tmp_2++) {
-        e_wm = MPC_B.H_qp_tmp[Su_tmp_2 * 12 + A_d_tmp];
-        rtb_DiscreteTimeIntegrator_idx_ += e_wm * e_wm;
-      }
-    }
-
-    rtb_DiscreteTimeIntegrator_idx_ = MPC_B.H_qp_tmp[idxAjj] -
-      rtb_DiscreteTimeIntegrator_idx_;
-    if (rtb_DiscreteTimeIntegrator_idx_ > 0.0F) {
-      rtb_DiscreteTimeIntegrator_idx_ = (real32_T)sqrt
-        (rtb_DiscreteTimeIntegrator_idx_);
-      MPC_B.H_qp_tmp[idxAjj] = rtb_DiscreteTimeIntegrator_idx_;
-      if (A_d_tmp + 1 < 12) {
-        if (A_d_tmp != 0) {
-          T_tmp = ((A_d_tmp - 1) * 12 + A_d_tmp) + 2;
-          for (T_tmp_0 = A_d_tmp + 2; T_tmp_0 <= T_tmp; T_tmp_0 += 12) {
-            Su_tmp_2 = T_tmp_0 - A_d_tmp;
-            e_wm = -MPC_B.H_qp_tmp[div_nde_s16_floor(Su_tmp_2 - 2, 12) * 12 +
-              A_d_tmp];
-            e = Su_tmp_2 + 10;
-            for (ia = T_tmp_0; ia <= e; ia++) {
-              Su_tmp_2 = ((idxAjj + ia) - T_tmp_0) + 1;
-              MPC_B.H_qp_tmp[Su_tmp_2] += MPC_B.H_qp_tmp[ia - 1] * e_wm;
-            }
-          }
-        }
-
-        rtb_DiscreteTimeIntegrator_idx_ = 1.0F / rtb_DiscreteTimeIntegrator_idx_;
-        Su_tmp_2 = (idxAjj - A_d_tmp) + 12;
-        for (T_tmp = idxAjj + 2; T_tmp <= Su_tmp_2; T_tmp++) {
-          MPC_B.H_qp_tmp[T_tmp - 1] *= rtb_DiscreteTimeIntegrator_idx_;
-        }
-      }
-
-      A_d_tmp++;
-    } else {
-      MPC_B.H_qp_tmp[idxAjj] = rtb_DiscreteTimeIntegrator_idx_;
-      i = A_d_tmp + 1;
-      exitg1 = true;
-    }
-  }
-
-  if (i == 0) {
-    i = 13;
-  }
-
-  i--;
-  for (A_d_tmp = 2; A_d_tmp <= i; A_d_tmp++) {
-    for (idxAjj = 0; idxAjj <= A_d_tmp - 2; idxAjj++) {
-      MPC_B.H_qp_tmp[idxAjj + 12 * (A_d_tmp - 1)] = 0.0F;
-    }
-  }
-
-  /* End of Outputs for SubSystem: '<S1>/Current controller' */
-  /* End of Outputs for SubSystem: '<Root>/MPC' */
-  for (i = 0; i < 144; i++) {
-    /* Outputs for Atomic SubSystem: '<Root>/MPC' */
-    /* Outputs for Atomic SubSystem: '<S1>/Current controller' */
-    /* MATLAB Function: '<S2>/MPC' */
-    MPC_B.H_qp[i] = B[i];
-
-    /* End of Outputs for SubSystem: '<S1>/Current controller' */
-    /* End of Outputs for SubSystem: '<Root>/MPC' */
-  }
-
-  /* Outputs for Atomic SubSystem: '<Root>/MPC' */
   /* Outputs for Atomic SubSystem: '<S1>/Current controller' */
   /* MATLAB Function: '<S2>/MPC' incorporates:
    *  Inport: '<Root>/Id_meas'
    *  Inport: '<Root>/Iq_meas'
    *  UnitDelay: '<S2>/Unit Delay'
    */
-  MPC_trisolve(MPC_B.H_qp_tmp, MPC_B.H_qp);
-  for (i = 0; i < 12; i++) {
-    for (idxAjj = 0; idxAjj < 12; idxAjj++) {
-      rtb_DiscreteTimeIntegrator_idx_ = 0.0F;
-      for (Su_tmp_2 = 0; Su_tmp_2 < 12; Su_tmp_2++) {
-        rtb_DiscreteTimeIntegrator_idx_ += MPC_B.Su[12 * i + Su_tmp_2] * y[12 *
-          idxAjj + Su_tmp_2];
-      }
-
-      MPC_B.Su_m[i + 12 * idxAjj] = rtb_DiscreteTimeIntegrator_idx_;
-    }
-
-    a[i] = ((MPC_B.a[i + 12] * MPC_U.Iq_meas + MPC_B.a[i] * MPC_U.Id_meas) +
-            Sh[i]) - IdIq_ref[i];
+  IdIq_ref[0] = MPC_Y.id_ref_cal_out;
+  IdIq_ref[1] = MPC_Y.iq_ref_cal_out;
+  H_qp[1] = 0.0F;
+  H_qp[2] = 0.0F;
+  H_qp[0] = 1.0F;
+  H_qp[3] = 1.0F;
+  a[0] = 0.0F;
+  Su[0] = 0.0F;
+  a[1] = 0.0F;
+  Su[1] = 0.0F;
+  a[2] = 0.0F;
+  Su[2] = 0.0F;
+  a[3] = 0.0F;
+  Su[3] = 0.0F;
+  tmp[0] = -MPC_P.Rs / MPC_P.Ld * MPC_P.Tsw;
+  tmp[1] = rtb_PrelookupTe_o2 * MPC_P.Lq / MPC_P.Ld * MPC_P.Tsw;
+  rtb_Gain_0[0] = -rtb_PrelookupTe_o2 * MPC_P.Ld / MPC_P.Lq * MPC_P.Tsw;
+  rtb_Gain_0[1] = -MPC_P.Rs / MPC_P.Lq * MPC_P.Tsw;
+  e_wm = 0.0F * MPC_P.Tsw;
+  tmp_0 = -rtb_PrelookupTe_o2 * MPC_P.psi_m / MPC_P.Lq * MPC_P.Tsw;
+  Linv[0] = 1.0F / MPC_P.Ld * MPC_P.Tsw;
+  Linv[1] = 0.0F * MPC_P.Tsw;
+  Linv[2] = 0.0F * MPC_P.Tsw;
+  Linv[3] = 1.0F / MPC_P.Lq * MPC_P.Tsw;
+  for (i = 0; i < 2; i++) {
+    H_qp_0 = H_qp[i] + tmp[i];
+    H_qp_1 = H_qp[i + 2] + rtb_Gain_0[i];
+    idxAjj = b[i];
+    a[idxAjj] = 0.0F;
+    info = i << 1U;
+    Su[idxAjj] = 0.0F;
+    a[idxAjj] += H_qp_0;
+    rtb_PrelookupTe_o2 = Linv[i];
+    Su[idxAjj] += rtb_PrelookupTe_o2;
+    a[idxAjj] += H_qp_1 * 0.0F;
+    rtb_PrelookupRPM_o2 = Linv[i + 2];
+    Su[idxAjj] += rtb_PrelookupRPM_o2 * 0.0F;
+    a[idxAjj + 2] = 0.0F;
+    Su[idxAjj + 2] = 0.0F;
+    a[idxAjj + 2] += H_qp_0 * 0.0F;
+    Su[idxAjj + 2] += rtb_PrelookupTe_o2 * 0.0F;
+    a[idxAjj + 2] += H_qp_1;
+    Su[idxAjj + 2] += rtb_PrelookupRPM_o2;
+    frac[i] = (real32_T)e[info + 1] * tmp_0 + (real32_T)e[info] * e_wm;
   }
 
-  for (i = 0; i < 12; i++) {
-    Sh[i] = 0.0F;
-    T[i] = 0.0F;
-    for (idxAjj = 0; idxAjj < 12; idxAjj++) {
-      A_d_tmp = 12 * idxAjj + i;
-      Sh[i] += MPC_B.Su_m[A_d_tmp] * a[idxAjj];
-      rtb_DiscreteTimeIntegrator_idx_ = 0.0F;
-      e_wm = 0.0F;
-      for (Su_tmp_2 = 0; Su_tmp_2 < 12; Su_tmp_2++) {
-        T_tmp = 12 * i + Su_tmp_2;
-        T_tmp_0 = 12 * idxAjj + Su_tmp_2;
-        rtb_DiscreteTimeIntegrator_idx_ += (real32_T)MPC_B.T[T_tmp] *
-          b_y[T_tmp_0];
-        e_wm += MPC_B.H_qp[T_tmp] * MPC_B.H_qp[T_tmp_0];
-      }
-
-      MPC_B.Su[A_d_tmp] = e_wm;
-      T[i] += rtb_DiscreteTimeIntegrator_idx_ * b[idxAjj];
-    }
-
-    IdIq_ref[i] = 2.0F * Sh[i] - 2.0F * T[i];
+  frac_0[0] = 0.0F;
+  frac_0[1] = 0.0F;
+  rtb_PrelookupTe_o2 = Su[2];
+  rtb_PrelookupRPM_o2 = Su[0];
+  H_qp_0 = Su[3];
+  H_qp_1 = Su[1];
+  for (info = 0; info < 2; info++) {
+    frac_0[b[info]] = MPC_DW.UnitDelay_DSTATE[info];
+    e_wm = g_0[info + 2];
+    tmp_0 = g_0[info];
+    g[info] = e_wm * rtb_PrelookupTe_o2 + tmp_0 * rtb_PrelookupRPM_o2;
+    g[info + 2] = e_wm * H_qp_0 + tmp_0 * H_qp_1;
   }
 
-  MPC_qpkwik(MPC_B.H_qp, MPC_B.Su, IdIq_ref, l, MPC_DW.iA_prev, Sh, MPC_B.a,
-             &exitflag);
+  e_wm = g[1];
+  tmp_0 = g[0];
+  H_qp_0 = g[3];
+  H_qp_1 = g[2];
+  for (info = 0; info < 2; info++) {
+    H_qp[info] = h[info];
+    rtb_PrelookupTe_o2 = Su[info + 2];
+    rtb_PrelookupRPM_o2 = Su[info];
+    Linv[info] = rtb_PrelookupTe_o2 * e_wm + rtb_PrelookupRPM_o2 * tmp_0;
+    H_qp[info + 2] = h[info + 2];
+    Linv[info + 2] = rtb_PrelookupTe_o2 * H_qp_0 + rtb_PrelookupRPM_o2 * H_qp_1;
+  }
+
+  for (info = 0; info < 2; info++) {
+    i = info << 1U;
+    rtb_PrelookupTe_o2 = H_qp[i + 1];
+    rtb_PrelookupRPM_o2 = H_qp[i];
+    T[i] = rtb_PrelookupTe_o2 * 0.0F + rtb_PrelookupRPM_o2;
+    T[i + 1] = rtb_PrelookupRPM_o2 * 0.0F + rtb_PrelookupTe_o2;
+  }
+
+  H_qp[0] = 2.0F * Linv[0] + 2.0F * T[0];
+  H_qp[3] = 2.0F * Linv[3] + 2.0F * T[3];
+  g[0] = (H_qp[0] + H_qp[0]) / 2.0F + 1.0E-6F;
+  rtb_PrelookupTe_o2 = ((2.0F * Linv[1] + 2.0F * T[1]) + (2.0F * Linv[2] + 2.0F *
+    T[2])) / 2.0F;
+  g[1] = rtb_PrelookupTe_o2;
+  g[2] = rtb_PrelookupTe_o2;
+  g[3] = (H_qp[3] + H_qp[3]) / 2.0F + 1.0E-6F;
+  info = 0;
+  i = 0;
+  exitg1 = false;
+  while ((!exitg1) && (i < 2)) {
+    idxAjj = (i << 1U) + i;
+    rtb_PrelookupTe_o2 = 0.0F;
+    if (i >= 1) {
+      rtb_PrelookupTe_o2 = g[1] * g[1];
+    }
+
+    rtb_PrelookupTe_o2 = g[idxAjj] - rtb_PrelookupTe_o2;
+    if (rtb_PrelookupTe_o2 > 0.0F) {
+      rtb_PrelookupTe_o2 = (real32_T)sqrt(rtb_PrelookupTe_o2);
+      g[idxAjj] = rtb_PrelookupTe_o2;
+      if (i + 1 < 2) {
+        rtb_PrelookupTe_o2 = 1.0F / rtb_PrelookupTe_o2;
+        for (c_k = idxAjj + 2; c_k <= idxAjj + 2; c_k++) {
+          g[c_k - 1] *= rtb_PrelookupTe_o2;
+        }
+      }
+
+      i++;
+    } else {
+      g[idxAjj] = rtb_PrelookupTe_o2;
+      info = i + 1;
+      exitg1 = true;
+    }
+  }
+
+  if (info == 0) {
+    info = 3;
+  }
+
+  if (info - 1 >= 2) {
+    g[2] = 0.0F;
+  }
+
+  Linv[0] = 1.0F;
+  H_qp[0] = g[0];
+  Linv[2] = 0.0F;
+  H_qp[1] = g[2];
+  Linv[1] = 0.0F;
+  H_qp[2] = g[1];
+  Linv[3] = 1.0F;
+  H_qp[3] = g[3];
+  MPC_trisolve(H_qp, Linv);
+  rtb_PrelookupTe_o2 = Su[2];
+  rtb_PrelookupRPM_o2 = Su[0];
+  H_qp_0 = Su[3];
+  H_qp_1 = Su[1];
+  for (info = 0; info < 2; info++) {
+    i = info << 1U;
+    e_wm = g_0[info + 2];
+    tmp_0 = g_0[info];
+    g[info] = e_wm * rtb_PrelookupTe_o2 + tmp_0 * rtb_PrelookupRPM_o2;
+    g[info + 2] = e_wm * H_qp_0 + tmp_0 * H_qp_1;
+    tmp[info] = ((a[i + 1] * MPC_U.Iq_meas + a[i] * MPC_U.Id_meas) + frac[info])
+      - IdIq_ref[info];
+  }
+
+  rtb_PrelookupTe_o2 = tmp[0];
+  rtb_PrelookupRPM_o2 = tmp[1];
+  for (info = 0; info < 2; info++) {
+    i = info << 1U;
+    H_qp[info] = h[info];
+    tmp[info] = g[i + 1] * rtb_PrelookupRPM_o2 + g[i] * rtb_PrelookupTe_o2;
+    H_qp[info + 2] = h[info + 2];
+  }
+
+  rtb_PrelookupTe_o2 = frac_0[0];
+  rtb_PrelookupRPM_o2 = frac_0[1];
+  for (info = 0; info < 2; info++) {
+    i = info << 1U;
+    e_wm = Linv[info + 2];
+    a[info] = e_wm * Linv[2] + Linv[info] * Linv[0];
+    a[info + 2] = e_wm * Linv[3] + Linv[info] * Linv[1];
+    frac[info] = 2.0F * tmp[info] - (H_qp[i + 1] * rtb_PrelookupRPM_o2 + H_qp[i]
+      * rtb_PrelookupTe_o2) * 2.0F;
+  }
+
+  MPC_qpkwik(Linv, a, frac, l, MPC_DW.iA_prev, IdIq_ref, H_qp, &exitflag);
   if (exitflag != 1L) {
-    for (i = 0; i < 12; i++) {
-      Sh[i] = 0.0F;
-    }
+    IdIq_ref[0] = 0.0F;
+    IdIq_ref[1] = 0.0F;
   }
 
-  MPC_DW.UnitDelay_DSTATE[0] = Sh[0];
-  MPC_DW.UnitDelay_DSTATE[1] = Sh[1];
+  MPC_DW.UnitDelay_DSTATE[0] = IdIq_ref[0];
+  MPC_DW.UnitDelay_DSTATE[1] = IdIq_ref[1];
 
+  /* End of MATLAB Function: '<S2>/MPC' */
   /* End of Outputs for SubSystem: '<S1>/Current controller' */
   /* End of Outputs for SubSystem: '<Root>/MPC' */
 
@@ -2020,41 +1530,37 @@ void MPC_initialize(void)
   /* external outputs */
   (void)memset(&MPC_Y, 0, sizeof(ExtY_MPC_T));
 
-  {
-    int16_T i;
+  /* SystemInitialize for Atomic SubSystem: '<Root>/MPC' */
+  /* SystemInitialize for Atomic SubSystem: '<S1>/Subsystem' */
+  /* InitializeConditions for DiscreteIntegrator: '<S4>/Discrete-Time Integrator' */
+  MPC_DW.DiscreteTimeIntegrator_DSTATE[0] = MPC_P.DiscreteTimeIntegrator_IC[0];
 
-    /* SystemInitialize for Atomic SubSystem: '<Root>/MPC' */
-    /* SystemInitialize for Atomic SubSystem: '<S1>/Subsystem' */
-    /* InitializeConditions for DiscreteIntegrator: '<S4>/Discrete-Time Integrator' */
-    MPC_DW.DiscreteTimeIntegrator_DSTATE[0] = MPC_P.DiscreteTimeIntegrator_IC[0];
+  /* End of SystemInitialize for SubSystem: '<S1>/Subsystem' */
 
-    /* End of SystemInitialize for SubSystem: '<S1>/Subsystem' */
+  /* SystemInitialize for Atomic SubSystem: '<S1>/Current controller' */
+  /* InitializeConditions for UnitDelay: '<S2>/Unit Delay' */
+  MPC_DW.UnitDelay_DSTATE[0] = MPC_P.UnitDelay_InitialCondition;
 
-    /* SystemInitialize for Atomic SubSystem: '<S1>/Current controller' */
-    /* InitializeConditions for UnitDelay: '<S2>/Unit Delay' */
-    MPC_DW.UnitDelay_DSTATE[0] = MPC_P.UnitDelay_InitialCondition;
+  /* End of SystemInitialize for SubSystem: '<S1>/Current controller' */
 
-    /* End of SystemInitialize for SubSystem: '<S1>/Current controller' */
+  /* SystemInitialize for Atomic SubSystem: '<S1>/Subsystem' */
+  /* InitializeConditions for DiscreteIntegrator: '<S4>/Discrete-Time Integrator' */
+  MPC_DW.DiscreteTimeIntegrator_DSTATE[1] = MPC_P.DiscreteTimeIntegrator_IC[1];
 
-    /* SystemInitialize for Atomic SubSystem: '<S1>/Subsystem' */
-    /* InitializeConditions for DiscreteIntegrator: '<S4>/Discrete-Time Integrator' */
-    MPC_DW.DiscreteTimeIntegrator_DSTATE[1] = MPC_P.DiscreteTimeIntegrator_IC[1];
+  /* End of SystemInitialize for SubSystem: '<S1>/Subsystem' */
 
-    /* End of SystemInitialize for SubSystem: '<S1>/Subsystem' */
+  /* SystemInitialize for Atomic SubSystem: '<S1>/Current controller' */
+  /* InitializeConditions for UnitDelay: '<S2>/Unit Delay' */
+  MPC_DW.UnitDelay_DSTATE[1] = MPC_P.UnitDelay_InitialCondition;
 
-    /* SystemInitialize for Atomic SubSystem: '<S1>/Current controller' */
-    /* InitializeConditions for UnitDelay: '<S2>/Unit Delay' */
-    MPC_DW.UnitDelay_DSTATE[1] = MPC_P.UnitDelay_InitialCondition;
+  /* SystemInitialize for MATLAB Function: '<S2>/MPC' */
+  MPC_DW.iA_prev[0] = false;
+  MPC_DW.iA_prev[1] = false;
+  MPC_DW.iA_prev[2] = false;
+  MPC_DW.iA_prev[3] = false;
 
-    /* SystemInitialize for MATLAB Function: '<S2>/MPC' */
-    for (i = 0; i < 24; i++) {
-      MPC_DW.iA_prev[i] = false;
-    }
-
-    /* End of SystemInitialize for MATLAB Function: '<S2>/MPC' */
-    /* End of SystemInitialize for SubSystem: '<S1>/Current controller' */
-    /* End of SystemInitialize for SubSystem: '<Root>/MPC' */
-  }
+  /* End of SystemInitialize for SubSystem: '<S1>/Current controller' */
+  /* End of SystemInitialize for SubSystem: '<Root>/MPC' */
 }
 
 /* Model terminate function */

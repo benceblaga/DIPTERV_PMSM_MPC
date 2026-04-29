@@ -7,9 +7,9 @@
  *
  * Code generated for Simulink model 'MPC'.
  *
- * Model version                  : 1.139
+ * Model version                  : 1.150
  * Simulink Coder version         : 9.9 (R2023a) 19-Nov-2022
- * C/C++ source code generated on : Mon Apr 27 05:07:49 2026
+ * C/C++ source code generated on : Wed Apr 29 03:55:08 2026
  *
  * Target selection: ert.tlc
  * Embedded hardware selection: Texas Instruments->C2000
