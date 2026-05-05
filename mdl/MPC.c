@@ -7,9 +7,9 @@
  *
  * Code generated for Simulink model 'MPC'.
  *
- * Model version                  : 1.150
+ * Model version                  : 1.151
  * Simulink Coder version         : 9.9 (R2023a) 19-Nov-2022
- * C/C++ source code generated on : Wed Apr 29 03:55:08 2026
+ * C/C++ source code generated on : Tue May  5 19:08:27 2026
  *
  * Target selection: ert.tlc
  * Embedded hardware selection: Texas Instruments->C2000
@@ -1126,27 +1126,27 @@ void MPC_step(void)
   real32_T frac_0[2];
   real32_T rtb_Gain_0[2];
   real32_T tmp[2];
-  real32_T H_qp_0;
-  real32_T H_qp_1;
+  real32_T Su_0;
+  real32_T Su_1;
   real32_T e_wm;
+  real32_T g_0;
   real32_T rtb_PrelookupRPM_o2;
   real32_T rtb_PrelookupTe_o2;
-  real32_T tmp_0;
   uint32_T bpIndex[2];
   uint32_T bpIndex_0[2];
   uint32_T rtb_PrelookupRPM_o1;
   uint32_T rtb_PrelookupTe_o1;
+  int16_T b;
   int16_T c_k;
   int16_T i;
   int16_T idxAjj;
-  int16_T info;
-  static const int16_T b[2] = { 0, 1 };
+  static const int16_T b_0[2] = { 0, 1 };
 
-  static const real32_T g_0[4] = { 0.1F, 0.0F, 0.0F, 0.2F };
-
-  static const real32_T h[4] = { 0.01F, 0.0F, 0.0F, 0.01F };
+  static const real32_T g_1[4] = { 0.1F, 0.0F, 0.0F, 0.2F };
 
   static const int16_T e[4] = { 1, 0, 0, 1 };
+
+  static const real32_T h[4] = { 0.01F, 0.0F, 0.0F, 0.01F };
 
   static const real32_T l[8] = { -1.0F, -0.0F, -0.0F, -1.0F, 1.0F, 0.0F, 0.0F,
     1.0F };
@@ -1180,18 +1180,16 @@ void MPC_step(void)
    *  DiscreteIntegrator: '<S4>/Discrete-Time Integrator'
    */
   rtb_PrelookupRPM_o2 = MPC_DW.DiscreteTimeIntegrator_DSTATE[1];
-  tmp_0 = MPC_DW.DiscreteTimeIntegrator_DSTATE[0];
+  g_0 = MPC_DW.DiscreteTimeIntegrator_DSTATE[0];
 
   /* Update for DiscreteIntegrator: '<S4>/Discrete-Time Integrator' incorporates:
    *  MATLAB Function: '<S4>/MATLAB Function'
    */
-  H_qp_0 = MPC_DW.DiscreteTimeIntegrator_DSTATE[1];
+  Su_0 = MPC_DW.DiscreteTimeIntegrator_DSTATE[1];
   MPC_DW.DiscreteTimeIntegrator_DSTATE[0] = (((MPC_Y.Te_meas_out -
-    rtb_PrelookupRPM_o2) - MPC_P.B * tmp_0) * (1.0F / MPC_P.J) + (2000.0F -
-    MPC_P.B / MPC_P.J) * e_wm) * MPC_P.DiscreteTimeIntegrator_gainval +
-    rtb_PrelookupTe_o2;
-  MPC_DW.DiscreteTimeIntegrator_DSTATE[1] = -MPC_P.J * 1.0E+6F * e_wm *
-    MPC_P.DiscreteTimeIntegrator_gainval + H_qp_0;
+    rtb_PrelookupRPM_o2) - 0.005F * g_0) * 43859.6484F + 1780.70178F * e_wm) *
+    0.0001F + rtb_PrelookupTe_o2;
+  MPC_DW.DiscreteTimeIntegrator_DSTATE[1] = -22.8000011F * e_wm * 0.0001F + Su_0;
 
   /* End of Outputs for SubSystem: '<S1>/Subsystem' */
 
@@ -1202,10 +1200,10 @@ void MPC_step(void)
 
   /* Outputs for Atomic SubSystem: '<S1>/Current reference generation' */
   /* Saturate: '<S3>/Saturation1' */
-  if (rtb_PrelookupTe_o2 > MPC_P.Te_max) {
-    rtb_PrelookupTe_o2 = MPC_P.Te_max;
-  } else if (rtb_PrelookupTe_o2 < MPC_P.Te_min) {
-    rtb_PrelookupTe_o2 = MPC_P.Te_min;
+  if (rtb_PrelookupTe_o2 > 1.25F) {
+    rtb_PrelookupTe_o2 = 1.25F;
+  } else if (rtb_PrelookupTe_o2 < -1.25F) {
+    rtb_PrelookupTe_o2 = -1.25F;
   }
 
   /* End of Saturate: '<S3>/Saturation1' */
@@ -1226,27 +1224,26 @@ void MPC_step(void)
 
   /* PreLookup: '<S3>/Prelookup Te' */
   rtb_PrelookupTe_o1 = plook_u32ff_binxp(rtb_PrelookupTe_o2,
-    MPC_P.PrelookupTe_BreakpointsData, 12UL, &rtb_PrelookupTe_o2,
+    MPC_ConstP.PrelookupTe_BreakpointsData, 12UL, &rtb_PrelookupTe_o2,
     &MPC_DW.PrelookupTe_DWORK1);
 
   /* Abs: '<S3>/Abs1' incorporates:
    *  Gain: '<S1>/Gain1'
    *  Inport: '<Root>/wm'
    */
-  rtb_PrelookupRPM_o2 = fabsf(MPC_P.Gain1_Gain * MPC_U.wm);
+  rtb_PrelookupRPM_o2 = fabsf(9.54929638F * MPC_U.wm);
 
   /* Saturate: '<S3>/Saturation' */
-  if (rtb_PrelookupRPM_o2 > MPC_P.rpm_max) {
-    rtb_PrelookupRPM_o2 = MPC_P.rpm_max;
-  } else if (rtb_PrelookupRPM_o2 < MPC_P.Saturation_LowerSat) {
-    rtb_PrelookupRPM_o2 = MPC_P.Saturation_LowerSat;
+  if (rtb_PrelookupRPM_o2 > 2674.0F) {
+    rtb_PrelookupRPM_o2 = 2674.0F;
   }
 
   /* End of Saturate: '<S3>/Saturation' */
 
   /* PreLookup: '<S3>/Prelookup RPM' */
   rtb_PrelookupRPM_o1 = plook_u32ff_binxp(rtb_PrelookupRPM_o2,
-    MPC_P.speed_rpm_vec, 20UL, &rtb_PrelookupRPM_o2, &MPC_DW.PrelookupRPM_DWORK1);
+    MPC_ConstP.PrelookupRPM_BreakpointsData, 20UL, &rtb_PrelookupRPM_o2,
+    &MPC_DW.PrelookupRPM_DWORK1);
 
   /* Interpolation_n-D: '<S3>/Interpolation Using Prelookup1' */
   frac[0L] = rtb_PrelookupTe_o2;
@@ -1267,19 +1264,19 @@ void MPC_step(void)
   bpIndex[1L] = rtb_PrelookupRPM_o1;
 
   /* Switch: '<S3>/Switch' */
-  if (e_wm >= MPC_P.Switch_Threshold) {
+  if (e_wm >= 0.0F) {
     /* Switch: '<S3>/Switch' incorporates:
      *  Interpolation_n-D: '<S3>/Interpolation Using Prelookup1'
      */
-    MPC_Y.iq_ref_cal_out = intrp2d_fu32flm_pw(bpIndex, frac, MPC_P.LUT_Iq,
-      MPC_P.InterpolationUsingPrelookup1_di);
+    MPC_Y.iq_ref_cal_out = intrp2d_fu32flm_pw(bpIndex, frac,
+      MPC_ConstP.InterpolationUsingPrelookup1_Ta, MPC_ConstP.pooled3);
   } else {
     /* Switch: '<S3>/Switch' incorporates:
      *  Interpolation_n-D: '<S3>/Interpolation Using Prelookup1'
      *  UnaryMinus: '<S3>/Unary Minus'
      */
-    MPC_Y.iq_ref_cal_out = -intrp2d_fu32flm_pw(bpIndex, frac, MPC_P.LUT_Iq,
-      MPC_P.InterpolationUsingPrelookup1_di);
+    MPC_Y.iq_ref_cal_out = -intrp2d_fu32flm_pw(bpIndex, frac,
+      MPC_ConstP.InterpolationUsingPrelookup1_Ta, MPC_ConstP.pooled3);
   }
 
   /* End of Switch: '<S3>/Switch' */
@@ -1303,15 +1300,15 @@ void MPC_step(void)
   bpIndex_0[1L] = rtb_PrelookupRPM_o1;
 
   /* Interpolation_n-D: '<S3>/Interpolation Using Prelookup' */
-  MPC_Y.id_ref_cal_out = intrp2d_fu32flm_pw(bpIndex_0, frac_0, MPC_P.LUT_Id,
-    MPC_P.InterpolationUsingPrelookup_dim);
+  MPC_Y.id_ref_cal_out = intrp2d_fu32flm_pw(bpIndex_0, frac_0,
+    MPC_ConstP.InterpolationUsingPrelookup_Tab, MPC_ConstP.pooled3);
 
   /* End of Outputs for SubSystem: '<S1>/Current reference generation' */
 
   /* Gain: '<S1>/Gain' incorporates:
    *  Inport: '<Root>/wm'
    */
-  rtb_PrelookupTe_o2 = MPC_P.p * MPC_U.wm;
+  rtb_PrelookupTe_o2 = 4.0F * MPC_U.wm;
 
   /* Outputs for Atomic SubSystem: '<S1>/Current controller' */
   /* MATLAB Function: '<S2>/MPC' incorporates:
@@ -1333,71 +1330,65 @@ void MPC_step(void)
   Su[2] = 0.0F;
   a[3] = 0.0F;
   Su[3] = 0.0F;
-  tmp[0] = -MPC_P.Rs / MPC_P.Ld * MPC_P.Tsw;
-  tmp[1] = rtb_PrelookupTe_o2 * MPC_P.Lq / MPC_P.Ld * MPC_P.Tsw;
-  rtb_Gain_0[0] = -rtb_PrelookupTe_o2 * MPC_P.Ld / MPC_P.Lq * MPC_P.Tsw;
-  rtb_Gain_0[1] = -MPC_P.Rs / MPC_P.Lq * MPC_P.Tsw;
-  e_wm = 0.0F * MPC_P.Tsw;
-  tmp_0 = -rtb_PrelookupTe_o2 * MPC_P.psi_m / MPC_P.Lq * MPC_P.Tsw;
-  Linv[0] = 1.0F / MPC_P.Ld * MPC_P.Tsw;
-  Linv[1] = 0.0F * MPC_P.Tsw;
-  Linv[2] = 0.0F * MPC_P.Tsw;
-  Linv[3] = 1.0F / MPC_P.Lq * MPC_P.Tsw;
+  tmp[0] = -0.042727273F;
+  tmp[1] = rtb_PrelookupTe_o2 * 0.00072F / 0.00055F * 0.0001F;
+  rtb_Gain_0[0] = -rtb_PrelookupTe_o2 * 0.00055F / 0.00072F * 0.0001F;
+  rtb_Gain_0[1] = -0.0326388888F;
+  rtb_PrelookupTe_o2 = -rtb_PrelookupTe_o2 * 0.016F / 0.00072F * 0.0001F;
+  Linv[0] = 0.181818187F;
+  Linv[1] = 0.0F;
+  Linv[2] = 0.0F;
+  Linv[3] = 0.138888896F;
   for (i = 0; i < 2; i++) {
-    H_qp_0 = H_qp[i] + tmp[i];
-    H_qp_1 = H_qp[i + 2] + rtb_Gain_0[i];
-    idxAjj = b[i];
-    a[idxAjj] = 0.0F;
-    info = i << 1U;
-    Su[idxAjj] = 0.0F;
-    a[idxAjj] += H_qp_0;
-    rtb_PrelookupTe_o2 = Linv[i];
-    Su[idxAjj] += rtb_PrelookupTe_o2;
-    a[idxAjj] += H_qp_1 * 0.0F;
-    rtb_PrelookupRPM_o2 = Linv[i + 2];
-    Su[idxAjj] += rtb_PrelookupRPM_o2 * 0.0F;
-    a[idxAjj + 2] = 0.0F;
-    Su[idxAjj + 2] = 0.0F;
-    a[idxAjj + 2] += H_qp_0 * 0.0F;
-    Su[idxAjj + 2] += rtb_PrelookupTe_o2 * 0.0F;
-    a[idxAjj + 2] += H_qp_1;
-    Su[idxAjj + 2] += rtb_PrelookupRPM_o2;
-    frac[i] = (real32_T)e[info + 1] * tmp_0 + (real32_T)e[info] * e_wm;
+    rtb_PrelookupRPM_o2 = H_qp[i] + tmp[i];
+    e_wm = H_qp[i + 2] + rtb_Gain_0[i];
+    b = b_0[i];
+    a[b] = 0.0F;
+    Su[b] = 0.0F;
+    a[b] += rtb_PrelookupRPM_o2;
+    Su[b] += Linv[i];
+    a[b] += e_wm * 0.0F;
+    a[b + 2] = 0.0F;
+    Su[b + 2] = 0.0F;
+    a[b + 2] += rtb_PrelookupRPM_o2 * 0.0F;
+    a[b + 2] += e_wm;
+    Su[b + 2] += Linv[i + 2];
+    frac[i] = (real32_T)e[(i << 1U) + 1] * rtb_PrelookupTe_o2;
   }
 
   frac_0[0] = 0.0F;
   frac_0[1] = 0.0F;
   rtb_PrelookupTe_o2 = Su[2];
   rtb_PrelookupRPM_o2 = Su[0];
-  H_qp_0 = Su[3];
-  H_qp_1 = Su[1];
-  for (info = 0; info < 2; info++) {
-    frac_0[b[info]] = MPC_DW.UnitDelay_DSTATE[info];
-    e_wm = g_0[info + 2];
-    tmp_0 = g_0[info];
-    g[info] = e_wm * rtb_PrelookupTe_o2 + tmp_0 * rtb_PrelookupRPM_o2;
-    g[info + 2] = e_wm * H_qp_0 + tmp_0 * H_qp_1;
+  Su_0 = Su[3];
+  Su_1 = Su[1];
+  for (i = 0; i < 2; i++) {
+    frac_0[b_0[i]] = MPC_DW.UnitDelay_DSTATE[i];
+    e_wm = g_1[i + 2];
+    g_0 = g_1[i];
+    g[i] = e_wm * rtb_PrelookupTe_o2 + g_0 * rtb_PrelookupRPM_o2;
+    g[i + 2] = e_wm * Su_0 + g_0 * Su_1;
   }
 
   e_wm = g[1];
-  tmp_0 = g[0];
-  H_qp_0 = g[3];
-  H_qp_1 = g[2];
-  for (info = 0; info < 2; info++) {
-    H_qp[info] = h[info];
-    rtb_PrelookupTe_o2 = Su[info + 2];
-    rtb_PrelookupRPM_o2 = Su[info];
-    Linv[info] = rtb_PrelookupTe_o2 * e_wm + rtb_PrelookupRPM_o2 * tmp_0;
-    H_qp[info + 2] = h[info + 2];
-    Linv[info + 2] = rtb_PrelookupTe_o2 * H_qp_0 + rtb_PrelookupRPM_o2 * H_qp_1;
+  g_0 = g[0];
+  Su_0 = g[3];
+  Su_1 = g[2];
+  for (i = 0; i < 2; i++) {
+    H_qp[i] = h[i];
+    rtb_PrelookupTe_o2 = Su[i + 2];
+    rtb_PrelookupRPM_o2 = Su[i];
+    Linv[i] = rtb_PrelookupTe_o2 * e_wm + rtb_PrelookupRPM_o2 * g_0;
+    H_qp[i + 2] = h[i + 2];
+    Linv[i + 2] = rtb_PrelookupTe_o2 * Su_0 + rtb_PrelookupRPM_o2 * Su_1;
   }
 
-  for (info = 0; info < 2; info++) {
-    i = info << 1U;
-    rtb_PrelookupTe_o2 = H_qp[i + 1];
-    rtb_PrelookupRPM_o2 = H_qp[i];
-    T[i] = rtb_PrelookupTe_o2 * 0.0F + rtb_PrelookupRPM_o2;
-    T[i + 1] = rtb_PrelookupRPM_o2 * 0.0F + rtb_PrelookupTe_o2;
+  for (i = 0; i < 2; i++) {
+    b = i << 1U;
+    rtb_PrelookupTe_o2 = H_qp[b + 1];
+    rtb_PrelookupRPM_o2 = H_qp[b];
+    T[b] = rtb_PrelookupTe_o2 * 0.0F + rtb_PrelookupRPM_o2;
+    T[b + 1] = rtb_PrelookupRPM_o2 * 0.0F + rtb_PrelookupTe_o2;
   }
 
   H_qp[0] = 2.0F * Linv[0] + 2.0F * T[0];
@@ -1408,13 +1399,13 @@ void MPC_step(void)
   g[1] = rtb_PrelookupTe_o2;
   g[2] = rtb_PrelookupTe_o2;
   g[3] = (H_qp[3] + H_qp[3]) / 2.0F + 1.0E-6F;
-  info = 0;
   i = 0;
+  b = 0;
   exitg1 = false;
-  while ((!exitg1) && (i < 2)) {
-    idxAjj = (i << 1U) + i;
+  while ((!exitg1) && (b < 2)) {
+    idxAjj = (b << 1U) + b;
     rtb_PrelookupTe_o2 = 0.0F;
-    if (i >= 1) {
+    if (b >= 1) {
       rtb_PrelookupTe_o2 = g[1] * g[1];
     }
 
@@ -1422,26 +1413,26 @@ void MPC_step(void)
     if (rtb_PrelookupTe_o2 > 0.0F) {
       rtb_PrelookupTe_o2 = (real32_T)sqrt(rtb_PrelookupTe_o2);
       g[idxAjj] = rtb_PrelookupTe_o2;
-      if (i + 1 < 2) {
+      if (b + 1 < 2) {
         rtb_PrelookupTe_o2 = 1.0F / rtb_PrelookupTe_o2;
         for (c_k = idxAjj + 2; c_k <= idxAjj + 2; c_k++) {
           g[c_k - 1] *= rtb_PrelookupTe_o2;
         }
       }
 
-      i++;
+      b++;
     } else {
       g[idxAjj] = rtb_PrelookupTe_o2;
-      info = i + 1;
+      i = b + 1;
       exitg1 = true;
     }
   }
 
-  if (info == 0) {
-    info = 3;
+  if (i == 0) {
+    i = 3;
   }
 
-  if (info - 1 >= 2) {
+  if (i - 1 >= 2) {
     g[2] = 0.0F;
   }
 
@@ -1456,36 +1447,36 @@ void MPC_step(void)
   MPC_trisolve(H_qp, Linv);
   rtb_PrelookupTe_o2 = Su[2];
   rtb_PrelookupRPM_o2 = Su[0];
-  H_qp_0 = Su[3];
-  H_qp_1 = Su[1];
-  for (info = 0; info < 2; info++) {
-    i = info << 1U;
-    e_wm = g_0[info + 2];
-    tmp_0 = g_0[info];
-    g[info] = e_wm * rtb_PrelookupTe_o2 + tmp_0 * rtb_PrelookupRPM_o2;
-    g[info + 2] = e_wm * H_qp_0 + tmp_0 * H_qp_1;
-    tmp[info] = ((a[i + 1] * MPC_U.Iq_meas + a[i] * MPC_U.Id_meas) + frac[info])
-      - IdIq_ref[info];
+  Su_0 = Su[3];
+  Su_1 = Su[1];
+  for (i = 0; i < 2; i++) {
+    b = i << 1U;
+    e_wm = g_1[i + 2];
+    g_0 = g_1[i];
+    g[i] = e_wm * rtb_PrelookupTe_o2 + g_0 * rtb_PrelookupRPM_o2;
+    g[i + 2] = e_wm * Su_0 + g_0 * Su_1;
+    tmp[i] = ((a[b + 1] * MPC_U.Iq_meas + a[b] * MPC_U.Id_meas) + frac[i]) -
+      IdIq_ref[i];
   }
 
   rtb_PrelookupTe_o2 = tmp[0];
   rtb_PrelookupRPM_o2 = tmp[1];
-  for (info = 0; info < 2; info++) {
-    i = info << 1U;
-    H_qp[info] = h[info];
-    tmp[info] = g[i + 1] * rtb_PrelookupRPM_o2 + g[i] * rtb_PrelookupTe_o2;
-    H_qp[info + 2] = h[info + 2];
+  for (i = 0; i < 2; i++) {
+    b = i << 1U;
+    H_qp[i] = h[i];
+    tmp[i] = g[b + 1] * rtb_PrelookupRPM_o2 + g[b] * rtb_PrelookupTe_o2;
+    H_qp[i + 2] = h[i + 2];
   }
 
   rtb_PrelookupTe_o2 = frac_0[0];
   rtb_PrelookupRPM_o2 = frac_0[1];
-  for (info = 0; info < 2; info++) {
-    i = info << 1U;
-    e_wm = Linv[info + 2];
-    a[info] = e_wm * Linv[2] + Linv[info] * Linv[0];
-    a[info + 2] = e_wm * Linv[3] + Linv[info] * Linv[1];
-    frac[info] = 2.0F * tmp[info] - (H_qp[i + 1] * rtb_PrelookupRPM_o2 + H_qp[i]
-      * rtb_PrelookupTe_o2) * 2.0F;
+  for (i = 0; i < 2; i++) {
+    b = i << 1U;
+    e_wm = Linv[i + 2];
+    a[i] = e_wm * Linv[2] + Linv[i] * Linv[0];
+    a[i + 2] = e_wm * Linv[3] + Linv[i] * Linv[1];
+    frac[i] = 2.0F * tmp[i] - (H_qp[b + 1] * rtb_PrelookupRPM_o2 + H_qp[b] *
+      rtb_PrelookupTe_o2) * 2.0F;
   }
 
   MPC_qpkwik(Linv, a, frac, l, MPC_DW.iA_prev, IdIq_ref, H_qp, &exitflag);
@@ -1531,28 +1522,7 @@ void MPC_initialize(void)
   (void)memset(&MPC_Y, 0, sizeof(ExtY_MPC_T));
 
   /* SystemInitialize for Atomic SubSystem: '<Root>/MPC' */
-  /* SystemInitialize for Atomic SubSystem: '<S1>/Subsystem' */
-  /* InitializeConditions for DiscreteIntegrator: '<S4>/Discrete-Time Integrator' */
-  MPC_DW.DiscreteTimeIntegrator_DSTATE[0] = MPC_P.DiscreteTimeIntegrator_IC[0];
-
-  /* End of SystemInitialize for SubSystem: '<S1>/Subsystem' */
-
   /* SystemInitialize for Atomic SubSystem: '<S1>/Current controller' */
-  /* InitializeConditions for UnitDelay: '<S2>/Unit Delay' */
-  MPC_DW.UnitDelay_DSTATE[0] = MPC_P.UnitDelay_InitialCondition;
-
-  /* End of SystemInitialize for SubSystem: '<S1>/Current controller' */
-
-  /* SystemInitialize for Atomic SubSystem: '<S1>/Subsystem' */
-  /* InitializeConditions for DiscreteIntegrator: '<S4>/Discrete-Time Integrator' */
-  MPC_DW.DiscreteTimeIntegrator_DSTATE[1] = MPC_P.DiscreteTimeIntegrator_IC[1];
-
-  /* End of SystemInitialize for SubSystem: '<S1>/Subsystem' */
-
-  /* SystemInitialize for Atomic SubSystem: '<S1>/Current controller' */
-  /* InitializeConditions for UnitDelay: '<S2>/Unit Delay' */
-  MPC_DW.UnitDelay_DSTATE[1] = MPC_P.UnitDelay_InitialCondition;
-
   /* SystemInitialize for MATLAB Function: '<S2>/MPC' */
   MPC_DW.iA_prev[0] = false;
   MPC_DW.iA_prev[1] = false;
