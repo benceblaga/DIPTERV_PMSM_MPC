@@ -7,9 +7,9 @@
  *
  * Code generated for Simulink model 'MPC'.
  *
- * Model version                  : 1.151
+ * Model version                  : 1.156
  * Simulink Coder version         : 9.9 (R2023a) 19-Nov-2022
- * C/C++ source code generated on : Tue May  5 19:08:27 2026
+ * C/C++ source code generated on : Wed May  6 14:42:29 2026
  *
  * Target selection: ert.tlc
  * Embedded hardware selection: Texas Instruments->C2000
@@ -19,8 +19,8 @@
 
 #include "MPC.h"
 #include "rtwtypes.h"
-#include "rt_nonfinite.h"
 #include <math.h>
+#include "rt_nonfinite.h"
 #include <string.h>
 #include "mw_C28x_addsub_s32.h"
 #include "MPC_private.h"
@@ -1130,12 +1130,10 @@ void MPC_step(void)
   real32_T Su_1;
   real32_T e_wm;
   real32_T g_0;
-  real32_T rtb_PrelookupRPM_o2;
-  real32_T rtb_PrelookupTe_o2;
+  real32_T rtb_Saturation;
+  real32_T u0;
   uint32_T bpIndex[2];
   uint32_T bpIndex_0[2];
-  uint32_T rtb_PrelookupRPM_o1;
-  uint32_T rtb_PrelookupTe_o1;
   int16_T b;
   int16_T c_k;
   int16_T i;
@@ -1174,21 +1172,20 @@ void MPC_step(void)
   e_wm = MPC_U.wm - MPC_DW.DiscreteTimeIntegrator_DSTATE[0];
 
   /* Update for DiscreteIntegrator: '<S4>/Discrete-Time Integrator' */
-  rtb_PrelookupTe_o2 = MPC_DW.DiscreteTimeIntegrator_DSTATE[0];
+  rtb_Saturation = MPC_DW.DiscreteTimeIntegrator_DSTATE[0];
 
   /* MATLAB Function: '<S4>/MATLAB Function' incorporates:
    *  DiscreteIntegrator: '<S4>/Discrete-Time Integrator'
    */
-  rtb_PrelookupRPM_o2 = MPC_DW.DiscreteTimeIntegrator_DSTATE[1];
+  u0 = MPC_DW.DiscreteTimeIntegrator_DSTATE[1];
   g_0 = MPC_DW.DiscreteTimeIntegrator_DSTATE[0];
 
   /* Update for DiscreteIntegrator: '<S4>/Discrete-Time Integrator' incorporates:
    *  MATLAB Function: '<S4>/MATLAB Function'
    */
   Su_0 = MPC_DW.DiscreteTimeIntegrator_DSTATE[1];
-  MPC_DW.DiscreteTimeIntegrator_DSTATE[0] = (((MPC_Y.Te_meas_out -
-    rtb_PrelookupRPM_o2) - 0.005F * g_0) * 43859.6484F + 1780.70178F * e_wm) *
-    0.0001F + rtb_PrelookupTe_o2;
+  MPC_DW.DiscreteTimeIntegrator_DSTATE[0] = (((MPC_Y.Te_meas_out - u0) - 0.005F *
+    g_0) * 43859.6484F + 1780.70178F * e_wm) * 0.0001F + rtb_Saturation;
   MPC_DW.DiscreteTimeIntegrator_DSTATE[1] = -22.8000011F * e_wm * 0.0001F + Su_0;
 
   /* End of Outputs for SubSystem: '<S1>/Subsystem' */
@@ -1196,75 +1193,74 @@ void MPC_step(void)
   /* Sum: '<S1>/Sum1' incorporates:
    *  Inport: '<Root>/Te_ref'
    */
-  rtb_PrelookupTe_o2 = MPC_U.Te_ref + MPC_Y.Tl_est_out;
+  rtb_Saturation = MPC_U.Te_ref + MPC_Y.Tl_est_out;
 
   /* Outputs for Atomic SubSystem: '<S1>/Current reference generation' */
   /* Saturate: '<S3>/Saturation1' */
-  if (rtb_PrelookupTe_o2 > 1.25F) {
-    rtb_PrelookupTe_o2 = 1.25F;
-  } else if (rtb_PrelookupTe_o2 < -1.25F) {
-    rtb_PrelookupTe_o2 = -1.25F;
+  if (rtb_Saturation > 1.25F) {
+    rtb_Saturation = 1.25F;
+  } else if (rtb_Saturation < -1.25F) {
+    rtb_Saturation = -1.25F;
   }
 
   /* End of Saturate: '<S3>/Saturation1' */
 
-  /* Signum: '<S3>/Sign' */
-  if (rtIsNaNF(rtb_PrelookupTe_o2)) {
-    e_wm = (rtNaNF);
-  } else if (rtb_PrelookupTe_o2 < 0.0F) {
-    e_wm = -1.0F;
-  } else {
-    e_wm = (rtb_PrelookupTe_o2 > 0.0F);
-  }
-
-  /* End of Signum: '<S3>/Sign' */
-
-  /* Abs: '<S3>/Abs' */
-  rtb_PrelookupTe_o2 = fabsf(rtb_PrelookupTe_o2);
-
-  /* PreLookup: '<S3>/Prelookup Te' */
-  rtb_PrelookupTe_o1 = plook_u32ff_binxp(rtb_PrelookupTe_o2,
-    MPC_ConstP.PrelookupTe_BreakpointsData, 12UL, &rtb_PrelookupTe_o2,
+  /* PreLookup: '<S3>/Prelookup Te' incorporates:
+   *  Abs: '<S3>/Abs'
+   */
+  MPC_Y.Te_indx_out = plook_u32ff_binxp(fabsf(rtb_Saturation),
+    MPC_ConstP.PrelookupTe_BreakpointsData, 12UL, &MPC_Y.Te_frac_out,
     &MPC_DW.PrelookupTe_DWORK1);
 
   /* Abs: '<S3>/Abs1' incorporates:
    *  Gain: '<S1>/Gain1'
    *  Inport: '<Root>/wm'
    */
-  rtb_PrelookupRPM_o2 = fabsf(9.54929638F * MPC_U.wm);
+  u0 = fabsf(9.54929638F * MPC_U.wm);
 
   /* Saturate: '<S3>/Saturation' */
-  if (rtb_PrelookupRPM_o2 > 2674.0F) {
-    rtb_PrelookupRPM_o2 = 2674.0F;
+  if (u0 > 2674.0F) {
+    u0 = 2674.0F;
   }
 
-  /* End of Saturate: '<S3>/Saturation' */
-
-  /* PreLookup: '<S3>/Prelookup RPM' */
-  rtb_PrelookupRPM_o1 = plook_u32ff_binxp(rtb_PrelookupRPM_o2,
-    MPC_ConstP.PrelookupRPM_BreakpointsData, 20UL, &rtb_PrelookupRPM_o2,
+  /* PreLookup: '<S3>/Prelookup RPM' incorporates:
+   *  Saturate: '<S3>/Saturation'
+   */
+  MPC_Y.Rpm_indx_out = plook_u32ff_binxp(u0,
+    MPC_ConstP.PrelookupRPM_BreakpointsData, 20UL, &MPC_Y.Rpm_frac_out,
     &MPC_DW.PrelookupRPM_DWORK1);
 
   /* Interpolation_n-D: '<S3>/Interpolation Using Prelookup1' */
-  frac[0L] = rtb_PrelookupTe_o2;
-  if (rtb_PrelookupTe_o2 < 0.0F) {
+  frac[0L] = MPC_Y.Te_frac_out;
+  if (MPC_Y.Te_frac_out < 0.0F) {
     frac[0L] = 0.0F;
-  } else if (rtb_PrelookupTe_o2 > 1.0F) {
+  } else if (MPC_Y.Te_frac_out > 1.0F) {
     frac[0L] = 1.0F;
   }
 
-  frac[1L] = rtb_PrelookupRPM_o2;
-  if (rtb_PrelookupRPM_o2 < 0.0F) {
+  frac[1L] = MPC_Y.Rpm_frac_out;
+  if (MPC_Y.Rpm_frac_out < 0.0F) {
     frac[1L] = 0.0F;
-  } else if (rtb_PrelookupRPM_o2 > 1.0F) {
+  } else if (MPC_Y.Rpm_frac_out > 1.0F) {
     frac[1L] = 1.0F;
   }
 
-  bpIndex[0L] = rtb_PrelookupTe_o1;
-  bpIndex[1L] = rtb_PrelookupRPM_o1;
+  bpIndex[0L] = MPC_Y.Te_indx_out;
+  bpIndex[1L] = MPC_Y.Rpm_indx_out;
 
-  /* Switch: '<S3>/Switch' */
-  if (e_wm >= 0.0F) {
+  /* Signum: '<S3>/Sign' */
+  if (rtIsNaNF(rtb_Saturation)) {
+    rtb_Saturation = (rtNaNF);
+  } else if (rtb_Saturation < 0.0F) {
+    rtb_Saturation = -1.0F;
+  } else {
+    rtb_Saturation = (rtb_Saturation > 0.0F);
+  }
+
+  /* Switch: '<S3>/Switch' incorporates:
+   *  Signum: '<S3>/Sign'
+   */
+  if (rtb_Saturation >= 0.0F) {
     /* Switch: '<S3>/Switch' incorporates:
      *  Interpolation_n-D: '<S3>/Interpolation Using Prelookup1'
      */
@@ -1282,22 +1278,22 @@ void MPC_step(void)
   /* End of Switch: '<S3>/Switch' */
 
   /* Interpolation_n-D: '<S3>/Interpolation Using Prelookup' */
-  frac_0[0L] = rtb_PrelookupTe_o2;
-  if (rtb_PrelookupTe_o2 < 0.0F) {
+  frac_0[0L] = MPC_Y.Te_frac_out;
+  if (MPC_Y.Te_frac_out < 0.0F) {
     frac_0[0L] = 0.0F;
-  } else if (rtb_PrelookupTe_o2 > 1.0F) {
+  } else if (MPC_Y.Te_frac_out > 1.0F) {
     frac_0[0L] = 1.0F;
   }
 
-  frac_0[1L] = rtb_PrelookupRPM_o2;
-  if (rtb_PrelookupRPM_o2 < 0.0F) {
+  frac_0[1L] = MPC_Y.Rpm_frac_out;
+  if (MPC_Y.Rpm_frac_out < 0.0F) {
     frac_0[1L] = 0.0F;
-  } else if (rtb_PrelookupRPM_o2 > 1.0F) {
+  } else if (MPC_Y.Rpm_frac_out > 1.0F) {
     frac_0[1L] = 1.0F;
   }
 
-  bpIndex_0[0L] = rtb_PrelookupTe_o1;
-  bpIndex_0[1L] = rtb_PrelookupRPM_o1;
+  bpIndex_0[0L] = MPC_Y.Te_indx_out;
+  bpIndex_0[1L] = MPC_Y.Rpm_indx_out;
 
   /* Interpolation_n-D: '<S3>/Interpolation Using Prelookup' */
   MPC_Y.id_ref_cal_out = intrp2d_fu32flm_pw(bpIndex_0, frac_0,
@@ -1308,7 +1304,7 @@ void MPC_step(void)
   /* Gain: '<S1>/Gain' incorporates:
    *  Inport: '<Root>/wm'
    */
-  rtb_PrelookupTe_o2 = 4.0F * MPC_U.wm;
+  rtb_Saturation = 4.0F * MPC_U.wm;
 
   /* Outputs for Atomic SubSystem: '<S1>/Current controller' */
   /* MATLAB Function: '<S2>/MPC' incorporates:
@@ -1331,42 +1327,42 @@ void MPC_step(void)
   a[3] = 0.0F;
   Su[3] = 0.0F;
   tmp[0] = -0.042727273F;
-  tmp[1] = rtb_PrelookupTe_o2 * 0.00072F / 0.00055F * 0.0001F;
-  rtb_Gain_0[0] = -rtb_PrelookupTe_o2 * 0.00055F / 0.00072F * 0.0001F;
+  tmp[1] = rtb_Saturation * 0.00072F / 0.00055F * 0.0001F;
+  rtb_Gain_0[0] = -rtb_Saturation * 0.00055F / 0.00072F * 0.0001F;
   rtb_Gain_0[1] = -0.0326388888F;
-  rtb_PrelookupTe_o2 = -rtb_PrelookupTe_o2 * 0.016F / 0.00072F * 0.0001F;
+  rtb_Saturation = -rtb_Saturation * 0.016F / 0.00072F * 0.0001F;
   Linv[0] = 0.181818187F;
   Linv[1] = 0.0F;
   Linv[2] = 0.0F;
   Linv[3] = 0.138888896F;
   for (i = 0; i < 2; i++) {
-    rtb_PrelookupRPM_o2 = H_qp[i] + tmp[i];
+    u0 = H_qp[i] + tmp[i];
     e_wm = H_qp[i + 2] + rtb_Gain_0[i];
     b = b_0[i];
     a[b] = 0.0F;
     Su[b] = 0.0F;
-    a[b] += rtb_PrelookupRPM_o2;
+    a[b] += u0;
     Su[b] += Linv[i];
     a[b] += e_wm * 0.0F;
     a[b + 2] = 0.0F;
     Su[b + 2] = 0.0F;
-    a[b + 2] += rtb_PrelookupRPM_o2 * 0.0F;
+    a[b + 2] += u0 * 0.0F;
     a[b + 2] += e_wm;
     Su[b + 2] += Linv[i + 2];
-    frac[i] = (real32_T)e[(i << 1U) + 1] * rtb_PrelookupTe_o2;
+    frac[i] = (real32_T)e[(i << 1U) + 1] * rtb_Saturation;
   }
 
   frac_0[0] = 0.0F;
   frac_0[1] = 0.0F;
-  rtb_PrelookupTe_o2 = Su[2];
-  rtb_PrelookupRPM_o2 = Su[0];
+  rtb_Saturation = Su[2];
+  u0 = Su[0];
   Su_0 = Su[3];
   Su_1 = Su[1];
   for (i = 0; i < 2; i++) {
     frac_0[b_0[i]] = MPC_DW.UnitDelay_DSTATE[i];
     e_wm = g_1[i + 2];
     g_0 = g_1[i];
-    g[i] = e_wm * rtb_PrelookupTe_o2 + g_0 * rtb_PrelookupRPM_o2;
+    g[i] = e_wm * rtb_Saturation + g_0 * u0;
     g[i + 2] = e_wm * Su_0 + g_0 * Su_1;
   }
 
@@ -1376,53 +1372,53 @@ void MPC_step(void)
   Su_1 = g[2];
   for (i = 0; i < 2; i++) {
     H_qp[i] = h[i];
-    rtb_PrelookupTe_o2 = Su[i + 2];
-    rtb_PrelookupRPM_o2 = Su[i];
-    Linv[i] = rtb_PrelookupTe_o2 * e_wm + rtb_PrelookupRPM_o2 * g_0;
+    rtb_Saturation = Su[i + 2];
+    u0 = Su[i];
+    Linv[i] = rtb_Saturation * e_wm + u0 * g_0;
     H_qp[i + 2] = h[i + 2];
-    Linv[i + 2] = rtb_PrelookupTe_o2 * Su_0 + rtb_PrelookupRPM_o2 * Su_1;
+    Linv[i + 2] = rtb_Saturation * Su_0 + u0 * Su_1;
   }
 
   for (i = 0; i < 2; i++) {
     b = i << 1U;
-    rtb_PrelookupTe_o2 = H_qp[b + 1];
-    rtb_PrelookupRPM_o2 = H_qp[b];
-    T[b] = rtb_PrelookupTe_o2 * 0.0F + rtb_PrelookupRPM_o2;
-    T[b + 1] = rtb_PrelookupRPM_o2 * 0.0F + rtb_PrelookupTe_o2;
+    rtb_Saturation = H_qp[b + 1];
+    u0 = H_qp[b];
+    T[b] = rtb_Saturation * 0.0F + u0;
+    T[b + 1] = u0 * 0.0F + rtb_Saturation;
   }
 
   H_qp[0] = 2.0F * Linv[0] + 2.0F * T[0];
   H_qp[3] = 2.0F * Linv[3] + 2.0F * T[3];
   g[0] = (H_qp[0] + H_qp[0]) / 2.0F + 1.0E-6F;
-  rtb_PrelookupTe_o2 = ((2.0F * Linv[1] + 2.0F * T[1]) + (2.0F * Linv[2] + 2.0F *
-    T[2])) / 2.0F;
-  g[1] = rtb_PrelookupTe_o2;
-  g[2] = rtb_PrelookupTe_o2;
+  rtb_Saturation = ((2.0F * Linv[1] + 2.0F * T[1]) + (2.0F * Linv[2] + 2.0F * T
+    [2])) / 2.0F;
+  g[1] = rtb_Saturation;
+  g[2] = rtb_Saturation;
   g[3] = (H_qp[3] + H_qp[3]) / 2.0F + 1.0E-6F;
   i = 0;
   b = 0;
   exitg1 = false;
   while ((!exitg1) && (b < 2)) {
     idxAjj = (b << 1U) + b;
-    rtb_PrelookupTe_o2 = 0.0F;
+    rtb_Saturation = 0.0F;
     if (b >= 1) {
-      rtb_PrelookupTe_o2 = g[1] * g[1];
+      rtb_Saturation = g[1] * g[1];
     }
 
-    rtb_PrelookupTe_o2 = g[idxAjj] - rtb_PrelookupTe_o2;
-    if (rtb_PrelookupTe_o2 > 0.0F) {
-      rtb_PrelookupTe_o2 = (real32_T)sqrt(rtb_PrelookupTe_o2);
-      g[idxAjj] = rtb_PrelookupTe_o2;
+    rtb_Saturation = g[idxAjj] - rtb_Saturation;
+    if (rtb_Saturation > 0.0F) {
+      rtb_Saturation = (real32_T)sqrt(rtb_Saturation);
+      g[idxAjj] = rtb_Saturation;
       if (b + 1 < 2) {
-        rtb_PrelookupTe_o2 = 1.0F / rtb_PrelookupTe_o2;
+        rtb_Saturation = 1.0F / rtb_Saturation;
         for (c_k = idxAjj + 2; c_k <= idxAjj + 2; c_k++) {
-          g[c_k - 1] *= rtb_PrelookupTe_o2;
+          g[c_k - 1] *= rtb_Saturation;
         }
       }
 
       b++;
     } else {
-      g[idxAjj] = rtb_PrelookupTe_o2;
+      g[idxAjj] = rtb_Saturation;
       i = b + 1;
       exitg1 = true;
     }
@@ -1445,38 +1441,38 @@ void MPC_step(void)
   Linv[3] = 1.0F;
   H_qp[3] = g[3];
   MPC_trisolve(H_qp, Linv);
-  rtb_PrelookupTe_o2 = Su[2];
-  rtb_PrelookupRPM_o2 = Su[0];
+  rtb_Saturation = Su[2];
+  u0 = Su[0];
   Su_0 = Su[3];
   Su_1 = Su[1];
   for (i = 0; i < 2; i++) {
     b = i << 1U;
     e_wm = g_1[i + 2];
     g_0 = g_1[i];
-    g[i] = e_wm * rtb_PrelookupTe_o2 + g_0 * rtb_PrelookupRPM_o2;
+    g[i] = e_wm * rtb_Saturation + g_0 * u0;
     g[i + 2] = e_wm * Su_0 + g_0 * Su_1;
     tmp[i] = ((a[b + 1] * MPC_U.Iq_meas + a[b] * MPC_U.Id_meas) + frac[i]) -
       IdIq_ref[i];
   }
 
-  rtb_PrelookupTe_o2 = tmp[0];
-  rtb_PrelookupRPM_o2 = tmp[1];
+  rtb_Saturation = tmp[0];
+  u0 = tmp[1];
   for (i = 0; i < 2; i++) {
     b = i << 1U;
     H_qp[i] = h[i];
-    tmp[i] = g[b + 1] * rtb_PrelookupRPM_o2 + g[b] * rtb_PrelookupTe_o2;
+    tmp[i] = g[b + 1] * u0 + g[b] * rtb_Saturation;
     H_qp[i + 2] = h[i + 2];
   }
 
-  rtb_PrelookupTe_o2 = frac_0[0];
-  rtb_PrelookupRPM_o2 = frac_0[1];
+  rtb_Saturation = frac_0[0];
+  u0 = frac_0[1];
   for (i = 0; i < 2; i++) {
     b = i << 1U;
     e_wm = Linv[i + 2];
     a[i] = e_wm * Linv[2] + Linv[i] * Linv[0];
     a[i + 2] = e_wm * Linv[3] + Linv[i] * Linv[1];
-    frac[i] = 2.0F * tmp[i] - (H_qp[b + 1] * rtb_PrelookupRPM_o2 + H_qp[b] *
-      rtb_PrelookupTe_o2) * 2.0F;
+    frac[i] = 2.0F * tmp[i] - (H_qp[b + 1] * u0 + H_qp[b] * rtb_Saturation) *
+      2.0F;
   }
 
   MPC_qpkwik(Linv, a, frac, l, MPC_DW.iA_prev, IdIq_ref, H_qp, &exitflag);

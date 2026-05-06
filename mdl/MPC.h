@@ -7,9 +7,9 @@
  *
  * Code generated for Simulink model 'MPC'.
  *
- * Model version                  : 1.151
+ * Model version                  : 1.156
  * Simulink Coder version         : 9.9 (R2023a) 19-Nov-2022
- * C/C++ source code generated on : Tue May  5 19:08:27 2026
+ * C/C++ source code generated on : Wed May  6 14:42:29 2026
  *
  * Target selection: ert.tlc
  * Embedded hardware selection: Texas Instruments->C2000
@@ -85,6 +85,10 @@ typedef struct {
   real32_T id_ref_cal_out;             /* '<Root>/id_ref_cal_out' */
   real32_T iq_ref_cal_out;             /* '<Root>/iq_ref_cal_out' */
   real32_T Tl_est_out;                 /* '<Root>/Tl_est_out' */
+  uint32_T Te_indx_out;                /* '<Root>/Te_indx_out' */
+  real32_T Te_frac_out;                /* '<Root>/Te_frac_out' */
+  uint32_T Rpm_indx_out;               /* '<Root>/Rpm_indx_out' */
+  real32_T Rpm_frac_out;               /* '<Root>/Rpm_frac_out' */
 } ExtY_MPC_T;
 
 /* Block states (default storage) */
