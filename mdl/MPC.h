@@ -7,9 +7,9 @@
  *
  * Code generated for Simulink model 'MPC'.
  *
- * Model version                  : 1.156
+ * Model version                  : 1.171
  * Simulink Coder version         : 9.9 (R2023a) 19-Nov-2022
- * C/C++ source code generated on : Wed May  6 14:42:29 2026
+ * C/C++ source code generated on : Fri May  8 12:08:12 2026
  *
  * Target selection: ert.tlc
  * Embedded hardware selection: Texas Instruments->C2000
@@ -66,7 +66,7 @@ typedef struct {
    *   '<S3>/Interpolation Using Prelookup'
    *   '<S3>/Interpolation Using Prelookup1'
    */
-  uint32_T pooled3[2];
+  uint32_T pooled7[2];
 } ConstP_MPC_T;
 
 /* External inputs (root inport signals with default storage) */
@@ -75,6 +75,9 @@ typedef struct {
   real32_T wm;                         /* '<Root>/wm' */
   real32_T Id_meas;                    /* '<Root>/Id_meas' */
   real32_T Iq_meas;                    /* '<Root>/Iq_meas' */
+  real32_T Tl_est_on;                  /* '<Root>/Tl_est_on' */
+  real32_T wx;                         /* '<Root>/wx' */
+  real32_T wu;                         /* '<Root>/wu' */
 } ExtU_MPC_T;
 
 /* External outputs (root outports fed by signals with default storage) */
