@@ -7,9 +7,9 @@
  *
  * Code generated for Simulink model 'MPC'.
  *
- * Model version                  : 1.171
+ * Model version                  : 1.179
  * Simulink Coder version         : 9.9 (R2023a) 19-Nov-2022
- * C/C++ source code generated on : Fri May  8 12:08:12 2026
+ * C/C++ source code generated on : Tue May 19 14:26:59 2026
  *
  * Target selection: ert.tlc
  * Embedded hardware selection: Texas Instruments->C2000
@@ -222,10 +222,10 @@ static real32_T MPC_maximum(const real32_T x[2])
 /* Function for MATLAB Function: '<S2>/MPC' */
 static void MPC_abs_i(real32_T y[4])
 {
-  y[0] = 13.8564062F;
-  y[1] = 13.8564062F;
-  y[2] = 13.8564062F;
-  y[3] = 13.8564062F;
+  y[0] = 13.8564072F;
+  y[1] = 13.8564072F;
+  y[2] = 13.8564072F;
+  y[3] = 13.8564072F;
 }
 
 /* Function for MATLAB Function: '<S2>/MPC' */
@@ -768,7 +768,7 @@ static void MPC_qpkwik(const real32_T Linv[4], const real32_T Hinv[4], const
               b_i = kDrop + 2L;
             }
 
-            Rhs[(int16_T)b_i - 1] = -13.8564062F;
+            Rhs[(int16_T)b_i - 1] = -13.8564072F;
             for (b_i = kDrop; b_i <= nA; b_i++) {
               kNext = ((int16_T)b_i - 1) << 1U;
               f_i = ((int16_T)kDrop + kNext) - 1;
@@ -930,7 +930,7 @@ static void MPC_qpkwik(const real32_T Linv[4], const real32_T Hinv[4], const
 
         if (!iA[f_i]) {
           Ac_tmp = f_i << 1U;
-          cVal = ((Ac[Ac_tmp + 1] * x[1] + Ac[Ac_tmp] * x[0]) - -13.8564062F) /
+          cVal = ((Ac[Ac_tmp + 1] * x[1] + Ac[Ac_tmp] * x[0]) - -13.8564072F) /
             cTol[f_i];
           if (cVal < cMin) {
             cMin = cVal;
@@ -1023,7 +1023,7 @@ static void MPC_qpkwik(const real32_T Linv[4], const real32_T Hinv[4], const
                 cVal = 0.0F;
                 ColdReset = true;
               } else {
-                cVal = (-13.8564062F - (t * x[1] + cVal * x[0])) / zTa;
+                cVal = (-13.8564072F - (t * x[1] + cVal * x[0])) / zTa;
                 ColdReset = false;
               }
 
@@ -1127,10 +1127,10 @@ void MPC_step(void)
   real32_T IdIq_ref[2];
   real32_T frac[2];
   real32_T frac_0[2];
+  real32_T A_d_0;
   real32_T Qb_1;
   real32_T Qb_2;
   real32_T Qb_3;
-  real32_T Qb_4;
   real32_T Su_0;
   real32_T Su_1;
   real32_T e_wm;
@@ -1177,15 +1177,15 @@ void MPC_step(void)
    *  DiscreteIntegrator: '<S4>/Discrete-Time Integrator'
    */
   ssq = MPC_DW.DiscreteTimeIntegrator_DSTATE[1];
-  Qb_3 = MPC_DW.DiscreteTimeIntegrator_DSTATE[0];
+  A_d_0 = MPC_DW.DiscreteTimeIntegrator_DSTATE[0];
 
   /* Update for DiscreteIntegrator: '<S4>/Discrete-Time Integrator' incorporates:
    *  MATLAB Function: '<S4>/MATLAB Function'
    */
-  Qb_4 = MPC_DW.DiscreteTimeIntegrator_DSTATE[1];
+  Qb_3 = MPC_DW.DiscreteTimeIntegrator_DSTATE[1];
   MPC_DW.DiscreteTimeIntegrator_DSTATE[0] = (((MPC_Y.Te_meas_out - ssq) - 0.0F *
-    Qb_3) * 43859.6484F + 2000.0F * e_wm) * 0.0001F + u0;
-  MPC_DW.DiscreteTimeIntegrator_DSTATE[1] = -22.8000011F * e_wm * 0.0001F + Qb_4;
+    A_d_0) * 43859.6484F + 2000.0F * e_wm) * 0.0001F + u0;
+  MPC_DW.DiscreteTimeIntegrator_DSTATE[1] = -22.8000011F * e_wm * 0.0001F + Qb_3;
 
   /* End of Outputs for SubSystem: '<S1>/Subsystem' */
 
@@ -1356,12 +1356,12 @@ void MPC_step(void)
     ssq = A_d[i];
     a[b] += ssq;
     Su[b] += B_d[i];
-    e_wm = A_d[i + 2];
-    a[b] += e_wm * 0.0F;
+    A_d_0 = A_d[i + 2];
+    a[b] += A_d_0 * 0.0F;
     a[b + 2] = 0.0F;
     Su[b + 2] = 0.0F;
     a[b + 2] += ssq * 0.0F;
-    a[b + 2] += e_wm;
+    a[b + 2] += A_d_0;
     Su[b + 2] += B_d[i + 2];
     frac[i] = (real32_T)e[(i << 1U) + 1] * rtb_DiscreteTimeIntegrator_idx_;
   }
@@ -1375,18 +1375,18 @@ void MPC_step(void)
   Qb[1] = 0.0F * MPC_U.wx;
   Qb[3] = 0.01F * MPC_U.wx;
   ssq = Su[2];
-  e_wm = Su[0];
+  A_d_0 = Su[0];
   Su_0 = Su[3];
   Su_1 = Su[1];
   for (i = 0; i < 2; i++) {
-    Qb_3 = Qb[i + 2];
-    Qb_4 = Qb[i];
-    Qb_0[i] = Qb_3 * ssq + Qb_4 * e_wm;
-    Qb_0[i + 2] = Qb_3 * Su_0 + Qb_4 * Su_1;
+    e_wm = Qb[i + 2];
+    Qb_3 = Qb[i];
+    Qb_0[i] = e_wm * ssq + Qb_3 * A_d_0;
+    Qb_0[i + 2] = e_wm * Su_0 + Qb_3 * Su_1;
   }
 
-  Qb_3 = Qb_0[1];
-  Qb_4 = Qb_0[0];
+  e_wm = Qb_0[1];
+  Qb_3 = Qb_0[0];
   Qb_1 = Qb_0[3];
   Qb_2 = Qb_0[2];
   for (i = 0; i < 2; i++) {
@@ -1394,10 +1394,10 @@ void MPC_step(void)
     Su_1 = B_d[i];
     H_qp[i] = Su_0 * 0.0F + Su_1;
     ssq = Su[i + 2];
-    e_wm = Su[i];
-    Linv[i] = ssq * Qb_3 + e_wm * Qb_4;
+    A_d_0 = Su[i];
+    Linv[i] = ssq * e_wm + A_d_0 * Qb_3;
     H_qp[i + 2] = Su_1 * 0.0F + Su_0;
-    Linv[i + 2] = ssq * Qb_1 + e_wm * Qb_2;
+    Linv[i + 2] = ssq * Qb_1 + A_d_0 * Qb_2;
   }
 
   for (i = 0; i < 2; i++) {
@@ -1468,15 +1468,15 @@ void MPC_step(void)
     0.967361093F) + (MPC_DW.UnitDelay_DSTATE[0] * 0.0F +
                      MPC_DW.UnitDelay_DSTATE[1] * 0.138888896F);
   ssq = Su[2];
-  e_wm = Su[0];
+  A_d_0 = Su[0];
   Su_0 = Su[3];
   Su_1 = Su[1];
   for (i = 0; i < 2; i++) {
     b = i << 1U;
-    Qb_3 = Qb[i + 2];
-    Qb_4 = Qb[i];
-    Qb_0[i] = Qb_3 * ssq + Qb_4 * e_wm;
-    Qb_0[i + 2] = Qb_3 * Su_0 + Qb_4 * Su_1;
+    e_wm = Qb[i + 2];
+    Qb_3 = Qb[i];
+    Qb_0[i] = e_wm * ssq + Qb_3 * A_d_0;
+    Qb_0[i + 2] = e_wm * Su_0 + Qb_3 * Su_1;
     frac_0[i] = ((a[b + 1] * rtb_DiscreteTimeIntegrator_idx_ + a[b] * u0) +
                  frac[i]) - IdIq_ref[i];
   }
@@ -1511,6 +1511,45 @@ void MPC_step(void)
 
   MPC_DW.UnitDelay_DSTATE[0] = IdIq_ref[0];
   MPC_DW.UnitDelay_DSTATE[1] = IdIq_ref[1];
+  if (fabsf(MPC_DW.UnitDelay_DSTATE[0]) > 13.8564072F) {
+    rtb_DiscreteTimeIntegrator_idx_ = MPC_DW.UnitDelay_DSTATE[0];
+    if (rtIsNaNF(rtb_DiscreteTimeIntegrator_idx_)) {
+      u0 = (rtNaNF);
+    } else if (rtb_DiscreteTimeIntegrator_idx_ < 0.0F) {
+      u0 = -1.0F;
+    } else {
+      u0 = (rtb_DiscreteTimeIntegrator_idx_ > 0.0F);
+    }
+
+    u0 *= 13.8564072F;
+  } else {
+    u0 = MPC_DW.UnitDelay_DSTATE[0];
+  }
+
+  rtb_DiscreteTimeIntegrator_idx_ = 192.000015F - u0 * u0;
+  if ((rtb_DiscreteTimeIntegrator_idx_ <= 0.0F) || rtIsNaNF
+      (rtb_DiscreteTimeIntegrator_idx_)) {
+    rtb_DiscreteTimeIntegrator_idx_ = 0.0F;
+  }
+
+  e_wm = (real32_T)sqrt(rtb_DiscreteTimeIntegrator_idx_);
+  ssq = MPC_DW.UnitDelay_DSTATE[1];
+  rtb_DiscreteTimeIntegrator_idx_ = MPC_DW.UnitDelay_DSTATE[1];
+  A_d_0 = MPC_DW.UnitDelay_DSTATE[1];
+  MPC_DW.UnitDelay_DSTATE[0] = u0;
+  if (fabsf(ssq) > e_wm) {
+    if (rtIsNaNF(rtb_DiscreteTimeIntegrator_idx_)) {
+      u0 = (rtNaNF);
+    } else if (rtb_DiscreteTimeIntegrator_idx_ < 0.0F) {
+      u0 = -1.0F;
+    } else {
+      u0 = (rtb_DiscreteTimeIntegrator_idx_ > 0.0F);
+    }
+
+    MPC_DW.UnitDelay_DSTATE[1] = u0 * e_wm;
+  } else {
+    MPC_DW.UnitDelay_DSTATE[1] = A_d_0;
+  }
 
   /* End of MATLAB Function: '<S2>/MPC' */
   /* End of Outputs for SubSystem: '<S1>/Current controller' */
