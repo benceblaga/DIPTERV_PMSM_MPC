@@ -349,7 +349,7 @@ float  DAC_SCA[28] = { 256.0f, 256.0f, 256.0f, 256.0f, 256.0f, 256.0f, 256.0f, 2
 /----------------------------------------------------------------------------*/
 volatile unsigned int MPC_ON = 0u;
 // put the MPC function in the RAM
-#pragma CODE_SECTION(MPC_step, "TI.ramfunc");
+#pragma CODE_SECTION(MPC_step, ".TI.ramfunc"); // majd csak flasheleskor lesz erre szukseg
 
 void main(void)
 {
